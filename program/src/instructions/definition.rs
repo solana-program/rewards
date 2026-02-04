@@ -61,7 +61,10 @@ pub enum RewardsProgramInstruction {
     #[codama(account(name = "token_program"))]
     #[codama(account(name = "event_authority"))]
     #[codama(account(name = "program"))]
-    ClaimVesting {} = 2,
+    ClaimVesting {
+        /// Amount to claim. 0 = claim all available.
+        amount: u64,
+    } = 2,
 
     /// Close a vesting distribution and recover remaining tokens.
     #[codama(account(name = "authority", signer, writable))]

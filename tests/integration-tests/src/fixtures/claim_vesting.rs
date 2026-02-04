@@ -75,6 +75,10 @@ impl ClaimVestingSetup {
     }
 
     pub fn build_instruction(&self, _ctx: &TestContext) -> TestInstruction {
+        self.build_instruction_with_amount(0)
+    }
+
+    pub fn build_instruction_with_amount(&self, claim_amount: u64) -> TestInstruction {
         let (event_authority, _) = find_event_authority_pda();
 
         let mut builder = ClaimVestingBuilder::new();
@@ -87,7 +91,8 @@ impl ClaimVestingSetup {
             .recipient_token_account(self.recipient_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
-            .program(PROGRAM_ID);
+            .program(PROGRAM_ID)
+            .amount(claim_amount);
 
         TestInstruction {
             instruction: builder.instruction(),
@@ -115,7 +120,8 @@ impl ClaimVestingSetup {
             .recipient_token_account(wrong_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
-            .program(PROGRAM_ID);
+            .program(PROGRAM_ID)
+            .amount(0);
 
         TestInstruction {
             instruction: builder.instruction(),
@@ -142,7 +148,8 @@ impl ClaimVestingSetup {
             .recipient_token_account(wrong_signer_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
-            .program(PROGRAM_ID);
+            .program(PROGRAM_ID)
+            .amount(0);
 
         TestInstruction {
             instruction: builder.instruction(),
@@ -298,6 +305,6 @@ impl InstructionTestFixture for ClaimVestingFixture {
     }
 
     fn data_len() -> usize {
-        1 // discriminator only
+        9 // discriminator (1) + amount (8)
     }
 }

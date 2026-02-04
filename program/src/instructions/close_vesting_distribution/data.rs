@@ -19,3 +19,22 @@ impl<'a> TryFrom<&'a [u8]> for CloseVestingDistributionData {
 impl<'a> InstructionData<'a> for CloseVestingDistributionData {
     const LEN: usize = 0;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_try_from_empty_data() {
+        let data: [u8; 0] = [];
+        let result = CloseVestingDistributionData::try_from(&data[..]);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_try_from_extra_data() {
+        let data = [1, 2, 3];
+        let result = CloseVestingDistributionData::try_from(&data[..]);
+        assert!(result.is_ok());
+    }
+}

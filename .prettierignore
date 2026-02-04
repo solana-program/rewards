@@ -13,3 +13,5 @@ target/
 node_modules/
 package.json
 pnpm-lock.yaml
+
+.coverage/

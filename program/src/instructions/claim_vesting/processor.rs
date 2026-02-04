@@ -39,11 +39,20 @@ pub fn process_claim_vesting(
         return Err(RewardsProgramError::NothingToClaim.into());
     }
 
+    let claim_amount = if ix.data.amount == 0 {
+        claimable_amount
+    } else {
+        if ix.data.amount > claimable_amount {
+            return Err(RewardsProgramError::ExceedsClaimableAmount.into());
+        }
+        ix.data.amount
+    };
+
     recipient.claimed_amount =
-        recipient.claimed_amount.checked_add(claimable_amount).ok_or(RewardsProgramError::MathOverflow)?;
+        recipient.claimed_amount.checked_add(claim_amount).ok_or(RewardsProgramError::MathOverflow)?;
 
     distribution.total_claimed =
-        distribution.total_claimed.checked_add(claimable_amount).ok_or(RewardsProgramError::MathOverflow)?;
+        distribution.total_claimed.checked_add(claim_amount).ok_or(RewardsProgramError::MathOverflow)?;
 
     let mut recipient_data = ix.accounts.recipient_account.try_borrow_mut()?;
     recipient.write_to_slice(&mut recipient_data)?;
@@ -61,15 +70,14 @@ pub fn process_claim_vesting(
             mint: ix.accounts.mint,
             to: ix.accounts.recipient_token_account,
             authority: ix.accounts.distribution,
-            amount: claimable_amount,
+            amount: claim_amount,
             decimals,
             token_program: ix.accounts.token_program.address(),
         }
         .invoke_signed(signers)
     })?;
 
-    let event =
-        ClaimedEvent::new(*ix.accounts.distribution.address(), *ix.accounts.recipient.address(), claimable_amount);
+    let event = ClaimedEvent::new(*ix.accounts.distribution.address(), *ix.accounts.recipient.address(), claim_amount);
     emit_event(&ID, ix.accounts.event_authority, ix.accounts.program, &event.to_bytes())?;
 
     Ok(())

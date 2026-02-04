@@ -241,4 +241,75 @@ mod tests {
         assert_eq!(bytes[0], TestAccount::DISCRIMINATOR);
         assert_eq!(bytes[1], TestAccount::VERSION);
     }
+
+    #[test]
+    fn test_from_bytes_invalid_discriminator() {
+        let account = TestAccount { bump: 100, data: [1u8; 32] };
+        let mut bytes = account.to_bytes();
+        bytes[0] = 99; // wrong discriminator
+        let result = TestAccount::from_bytes(&bytes);
+        assert_eq!(result, Err(ProgramError::InvalidAccountData));
+    }
+
+    #[test]
+    fn test_from_bytes_too_short() {
+        let bytes = [0u8; 5];
+        let result = TestAccount::from_bytes(&bytes);
+        assert_eq!(result, Err(ProgramError::InvalidInstructionData));
+    }
+
+    #[test]
+    fn test_from_bytes_mut_too_short() {
+        let mut bytes = [0u8; 5];
+        let result = TestAccount::from_bytes_mut(&mut bytes);
+        assert_eq!(result, Err(ProgramError::InvalidInstructionData));
+    }
+
+    #[test]
+    fn test_from_bytes_mut_invalid_discriminator() {
+        let account = TestAccount { bump: 100, data: [1u8; 32] };
+        let mut bytes = account.to_bytes();
+        bytes[0] = 99; // wrong discriminator
+        let result = TestAccount::from_bytes_mut(&mut bytes);
+        assert_eq!(result, Err(ProgramError::InvalidAccountData));
+    }
+
+    #[test]
+    fn test_write_to_slice_too_small() {
+        let account = TestAccount { bump: 100, data: [1u8; 32] };
+        let mut dest = vec![0u8; 5];
+        let result = account.write_to_slice(&mut dest);
+        assert_eq!(result, Err(ProgramError::AccountDataTooSmall));
+    }
+
+    #[test]
+    fn test_write_to_slice_larger_buffer() {
+        let account = TestAccount { bump: 100, data: [1u8; 32] };
+        let mut dest = vec![0u8; TestAccount::LEN + 50];
+        assert!(account.write_to_slice(&mut dest).is_ok());
+
+        let deserialized = TestAccount::from_bytes(&dest).unwrap();
+        assert_eq!(deserialized.bump, 100);
+    }
+
+    impl AccountValidation for TestAccount {}
+
+    #[test]
+    fn test_validate_discriminator_success() {
+        let account = TestAccount { bump: 100, data: [1u8; 32] };
+        let bytes = account.to_bytes();
+        assert!(TestAccount::validate_discriminator(&bytes).is_ok());
+    }
+
+    #[test]
+    fn test_validate_discriminator_wrong() {
+        let bytes = [99u8; 10];
+        assert_eq!(TestAccount::validate_discriminator(&bytes), Err(ProgramError::InvalidAccountData));
+    }
+
+    #[test]
+    fn test_validate_discriminator_empty() {
+        let bytes: [u8; 0] = [];
+        assert_eq!(TestAccount::validate_discriminator(&bytes), Err(ProgramError::InvalidAccountData));
+    }
 }

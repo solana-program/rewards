@@ -46,6 +46,14 @@ integration-test *args:
 # Run all tests (use --with-cu to track compute units)
 test *args: build unit-test (integration-test args)
 
+# Run unit tests with code coverage (generates HTML report in .coverage/)
+coverage:
+    cargo llvm-cov --package rewards-program --html --output-dir .coverage
+
+# Open coverage report in browser
+coverage-open: coverage
+    open .coverage/html
+
 # Build Client for Examples
 build-client:
     pnpm run generate-clients

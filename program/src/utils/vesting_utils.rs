@@ -84,4 +84,28 @@ mod tests {
         assert_eq!(VestingScheduleType::from_u8(1), None);
         assert_eq!(VestingScheduleType::from_u8(255), None);
     }
+
+    #[test]
+    fn test_linear_unlock_at_start() {
+        let result = calculate_linear_unlock(1000, 100, 200, 100).unwrap();
+        assert_eq!(result, 0);
+    }
+
+    #[test]
+    fn test_linear_unlock_at_end() {
+        let result = calculate_linear_unlock(1000, 100, 200, 200).unwrap();
+        assert_eq!(result, 1000);
+    }
+
+    #[test]
+    fn test_linear_unlock_three_quarters() {
+        let result = calculate_linear_unlock(1000, 0, 100, 75).unwrap();
+        assert_eq!(result, 750);
+    }
+
+    #[test]
+    fn test_linear_unlock_large_amounts() {
+        let result = calculate_linear_unlock(u64::MAX, 0, 100, 50).unwrap();
+        assert_eq!(result, u64::MAX / 2);
+    }
 }

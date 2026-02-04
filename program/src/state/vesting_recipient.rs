@@ -277,15 +277,6 @@ mod tests {
     }
 
     #[test]
-    fn test_vesting_recipient_pda_seeds_with_bump() {
-        let recipient = create_test_recipient();
-        let bump = [255u8];
-        let pda_seeds = recipient.seeds_with_bump(&bump);
-
-        assert_eq!(pda_seeds.len(), 4);
-    }
-
-    #[test]
     fn test_claimable_amount() {
         let recipient = create_test_recipient();
         // unlocked 500, claimed 0 -> claimable 500
@@ -343,5 +334,67 @@ mod tests {
         assert_eq!(deserialized.schedule_type, recipient.schedule_type);
         assert_eq!(deserialized.start_ts, recipient.start_ts);
         assert_eq!(deserialized.end_ts, recipient.end_ts);
+    }
+
+    #[test]
+    fn test_schedule_type_valid() {
+        let recipient = create_test_recipient();
+        assert_eq!(recipient.schedule_type(), Some(VestingScheduleType::Linear));
+    }
+
+    #[test]
+    fn test_schedule_type_invalid() {
+        let mut recipient = create_test_recipient();
+        recipient.schedule_type = 255;
+        assert_eq!(recipient.schedule_type(), None);
+    }
+
+    #[test]
+    fn test_calculate_unlocked_amount_invalid_schedule() {
+        let mut recipient = create_test_recipient();
+        recipient.schedule_type = 255;
+        assert_eq!(recipient.calculate_unlocked_amount(150).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_validate_distribution_success() {
+        let recipient = create_test_recipient();
+        let dist = Address::new_from_array([1u8; 32]);
+        assert!(recipient.validate_distribution(&dist).is_ok());
+    }
+
+    #[test]
+    fn test_validate_distribution_fail() {
+        let recipient = create_test_recipient();
+        let wrong_dist = Address::new_from_array([99u8; 32]);
+        assert!(recipient.validate_distribution(&wrong_dist).is_err());
+    }
+
+    #[test]
+    fn test_validate_recipient_success() {
+        let recipient = create_test_recipient();
+        let recip = Address::new_from_array([2u8; 32]);
+        assert!(recipient.validate_recipient(&recip).is_ok());
+    }
+
+    #[test]
+    fn test_validate_recipient_fail() {
+        let recipient = create_test_recipient();
+        let wrong_recip = Address::new_from_array([99u8; 32]);
+        assert!(recipient.validate_recipient(&wrong_recip).is_err());
+    }
+
+    #[test]
+    fn test_remaining_amount_full() {
+        let recipient = create_test_recipient();
+        assert_eq!(recipient.remaining_amount(), 1000);
+    }
+
+    #[test]
+    fn test_claimable_amount_exceeds_unlocked() {
+        let mut recipient = create_test_recipient();
+        recipient.claimed_amount = 600;
+        // unlocked 500, claimed 600 -> claimable 0 (saturating)
+        assert_eq!(recipient.claimable_amount(500), 0);
     }
 }

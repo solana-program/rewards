@@ -88,4 +88,14 @@ mod tests {
 
         assert_ne!(address1, address2);
     }
+
+    #[test]
+    fn test_seeds_returns_correct_structure() {
+        let pda = TestPda { seed: Address::new_from_array([5u8; 32]) };
+        let seeds = pda.seeds();
+
+        assert_eq!(seeds.len(), 2);
+        assert_eq!(seeds[0], TestPda::PREFIX);
+        assert_eq!(seeds[1], pda.seed.as_ref());
+    }
 }
