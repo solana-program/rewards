@@ -56,13 +56,6 @@ jobs:
           pnpm run generate-idl
           pnpm run generate-clients
           cd program && cargo-build-sbf
-      - name: Build test hook programs
-        run: |
-          cd tests/test-hook-program
-          cargo-build-sbf --features allow
-          cp ../../target/deploy/test_hook_program.so ../../target/deploy/test_hook_allow.so
-          cargo-build-sbf --features deny
-          cp ../../target/deploy/test_hook_program.so ../../target/deploy/test_hook_deny.so
       - name: Run integration tests
         run: |
           mkdir -p .cus
