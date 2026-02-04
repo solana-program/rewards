@@ -1,0 +1,44 @@
+//! # Rewards Program
+//!
+//! A Solana program for managing token rewards distributions with vesting
+//! schedules and claimable allocations.
+//!
+//! ## Features
+//! - Vesting distributions with configurable schedules
+//! - Per-recipient allocation tracking
+//! - Claimable rewards calculations
+//! - Token-2022 extension blocking
+//!
+//! ## Architecture
+//! Built with Pinocchio (no_std). Clients auto-generated via Codama.
+
+#![no_std]
+
+extern crate alloc;
+
+use pinocchio::address::declare_id;
+
+pub mod errors;
+pub mod traits;
+pub mod utils;
+
+pub mod events;
+pub mod instructions;
+pub mod state;
+
+#[cfg(not(feature = "no-entrypoint"))]
+pub mod entrypoint;
+
+declare_id!("7kw4iaikc9qTaFGcWx4wDiCXkkLddTb65HV8xH7KbHyc");
+
+#[cfg(not(feature = "no-entrypoint"))]
+use solana_security_txt::security_txt;
+
+#[cfg(not(feature = "no-entrypoint"))]
+security_txt! {
+    name: "Rewards Program",
+    project_url: "https://github.com/solana-program/rewards",
+    contacts: "link:https://github.com/solana-program/rewards/security/advisories/new",
+    policy: "https://github.com/solana-program/rewards/security/policy",
+    source_code: "https://github.com/solana-program/rewards"
+}

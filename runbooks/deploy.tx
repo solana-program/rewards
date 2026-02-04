@@ -1,0 +1,31 @@
+// Rewards Program Deployment Runbook
+// Documentation: https://docs.txtx.sh/addons/svm/overview
+
+addon "svm" {
+  network_id = input.svm_network_id
+  rpc_api_url = input.svm_api_url
+}
+
+signer "deployer" "svm::secret_key" {
+  keypair_json = input.deployer_keypair_json
+}
+
+action "deploy_rewards" "svm::deploy_program" {
+  description = "Deploy rewards-rewards"
+  program = svm::get_program_from_native_project("rewards_program")
+  authority = signer.deployer
+  payer = signer.deployer
+  commitment_level = "confirmed"
+}
+
+output "program_id" {
+  value = action.deploy_rewards.program_id
+}
+
+output "signatures" {
+  value = action.deploy_rewards.signatures
+}
+
+output "slot" {
+  value = action.deploy_rewards.slot
+}

@@ -1,0 +1,21 @@
+---
+name: rewards-program
+id: rewards-program
+runbooks:
+  - name: deploy
+    id: deploy
+    description: Deploy rewards program to SVM network
+    location: runbooks/deploy.tx
+environments:
+  localnet:
+    svm_network_id: localnet
+    svm_api_url: http://127.0.0.1:8899
+    deployer_keypair_json: ~/.config/solana/id.json
+  devnet:
+    svm_network_id: devnet
+    svm_api_url: https://api.devnet.solana.com
+    deployer_keypair_json: .keypairs/rewards-devnet-deployer.json
+  mainnet:
+    svm_network_id: mainnet-beta
+    svm_api_url: https://api.mainnet-beta.solana.com
+    deployer_keypair_json: .keypairs/rewards-mainnet-deployer.json
