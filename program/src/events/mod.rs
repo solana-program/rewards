@@ -1,11 +1,13 @@
+pub mod claim_closed;
 pub mod claimed;
 pub mod distribution_closed;
+pub mod distribution_created;
+pub mod recipient_added;
 pub mod shared;
-pub mod vesting_distribution_created;
-pub mod vesting_recipient_added;
 
+pub use claim_closed::*;
 pub use claimed::*;
 pub use distribution_closed::*;
+pub use distribution_created::*;
+pub use recipient_added::*;
 pub use shared::*;
-pub use vesting_distribution_created::*;
-pub use vesting_recipient_added::*;

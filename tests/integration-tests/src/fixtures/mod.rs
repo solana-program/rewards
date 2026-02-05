@@ -1,11 +1,22 @@
-pub mod add_vesting_recipient;
-pub mod claim_vesting;
-pub mod close_vesting_distribution;
-pub mod create_vesting_distribution;
+pub mod add_direct_recipient;
+pub mod claim_direct;
+pub mod claim_merkle;
+pub mod close_direct_distribution;
+pub mod close_merkle_claim;
+pub mod close_merkle_distribution;
+pub mod create_direct_distribution;
+pub mod create_merkle_distribution;
 
-pub use add_vesting_recipient::{AddVestingRecipientFixture, AddVestingRecipientSetup, DEFAULT_RECIPIENT_AMOUNT};
-pub use claim_vesting::{ClaimVestingFixture, ClaimVestingSetup};
-pub use close_vesting_distribution::{CloseVestingDistributionFixture, CloseVestingDistributionSetup};
-pub use create_vesting_distribution::{
-    CreateVestingDistributionFixture, CreateVestingDistributionSetup, DEFAULT_DISTRIBUTION_AMOUNT, LINEAR_SCHEDULE,
+pub use add_direct_recipient::{AddDirectRecipientFixture, AddDirectRecipientSetup, DEFAULT_RECIPIENT_AMOUNT};
+pub use claim_direct::{ClaimDirectFixture, ClaimDirectSetup};
+pub use claim_merkle::{ClaimMerkleFixture, ClaimMerkleSetup, DEFAULT_CLAIMANT_AMOUNT};
+pub use close_direct_distribution::{CloseDirectDistributionFixture, CloseDirectDistributionSetup};
+pub use close_merkle_claim::{CloseMerkleClaimFixture, CloseMerkleClaimSetup};
+pub use close_merkle_distribution::{CloseMerkleDistributionFixture, CloseMerkleDistributionSetup};
+pub use create_direct_distribution::{
+    CreateDirectDistributionFixture, CreateDirectDistributionSetup, DEFAULT_DISTRIBUTION_AMOUNT,
+};
+pub use create_merkle_distribution::{
+    CreateMerkleDistributionFixture, CreateMerkleDistributionSetup, DEFAULT_MERKLE_DISTRIBUTION_AMOUNT,
+    IMMEDIATE_SCHEDULE, LINEAR_SCHEDULE,
 };

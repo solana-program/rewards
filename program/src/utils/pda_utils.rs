@@ -8,6 +8,13 @@ use pinocchio_system::instructions::{Allocate, Assign, CreateAccount, Transfer};
 
 use crate::errors::RewardsProgramError;
 
+/// Check if a PDA account is uninitialized (owned by system program).
+/// Safe alternative to checking lamports == 0, which can be manipulated.
+#[inline(always)]
+pub fn is_pda_uninitialized(account: &AccountView) -> bool {
+    account.owned_by(&pinocchio_system::ID)
+}
+
 /// Close a PDA account and return the lamports to the recipient.
 pub fn close_pda_account(pda_account: &AccountView, recipient: &AccountView) -> ProgramResult {
     let payer_lamports = recipient.lamports();

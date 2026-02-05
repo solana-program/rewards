@@ -10,8 +10,9 @@ pub const EVENT_DISCRIMINATOR_LEN: usize = 8 + 1;
 pub enum EventDiscriminators {
     Claimed = 0,
     DistributionClosed = 1,
-    VestingDistributionCreated = 2,
-    VestingRecipientAdded = 3,
+    DistributionCreated = 2,
+    RecipientAdded = 3,
+    ClaimClosed = 4,
 }
 
 /// Event discriminator with Anchor-compatible prefix
