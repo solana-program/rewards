@@ -219,4 +219,44 @@ mod tests {
         assert_eq!(deserialized.total_allocated, dist.total_allocated);
         assert_eq!(deserialized.total_claimed, dist.total_claimed);
     }
+
+    #[test]
+    fn test_pda_seeds() {
+        let dist = create_test_distribution();
+        let seeds = dist.seeds();
+        assert_eq!(seeds.len(), 4);
+        assert_eq!(seeds[0], VESTING_DISTRIBUTION_SEED);
+        assert_eq!(seeds[1], dist.mint.as_ref());
+        assert_eq!(seeds[2], dist.authority.as_ref());
+        assert_eq!(seeds[3], dist.seeds.as_ref());
+    }
+
+    #[test]
+    fn test_remaining_unallocated_zero_allocated() {
+        let dist = create_test_distribution();
+        assert_eq!(dist.remaining_unallocated(1000), 1000);
+    }
+
+    #[test]
+    fn test_remaining_unallocated_overflow_protection() {
+        let mut dist = create_test_distribution();
+        dist.total_allocated = 1000;
+        dist.total_claimed = 0;
+        // vault has less than allocated - remaining
+        assert_eq!(dist.remaining_unallocated(500), 0);
+    }
+
+    #[test]
+    fn test_validate_authority_success() {
+        let dist = create_test_distribution();
+        let authority = Address::new_from_array([1u8; 32]);
+        assert!(dist.validate_authority(&authority).is_ok());
+    }
+
+    #[test]
+    fn test_validate_authority_fail() {
+        let dist = create_test_distribution();
+        let wrong_authority = Address::new_from_array([99u8; 32]);
+        assert!(dist.validate_authority(&wrong_authority).is_err());
+    }
 }

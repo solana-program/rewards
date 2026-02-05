@@ -322,98 +322,92 @@
       {
         "code": 0,
         "kind": "errorNode",
-        "message": "Claim window is not currently active",
-        "name": "claimWindowNotActive"
-      },
-      {
-        "code": 1,
-        "kind": "errorNode",
-        "message": "Recipient has already claimed this distribution",
-        "name": "alreadyClaimed"
-      },
-      {
-        "code": 2,
-        "kind": "errorNode",
         "message": "Invalid amount specified",
         "name": "invalidAmount"
       },
       {
-        "code": 3,
+        "code": 1,
         "kind": "errorNode",
         "message": "Invalid time window configuration",
         "name": "invalidTimeWindow"
       },
       {
-        "code": 4,
+        "code": 2,
         "kind": "errorNode",
         "message": "Invalid schedule type",
         "name": "invalidScheduleType"
       },
       {
-        "code": 5,
+        "code": 3,
         "kind": "errorNode",
         "message": "Unauthorized authority",
         "name": "unauthorizedAuthority"
       },
       {
-        "code": 6,
+        "code": 4,
         "kind": "errorNode",
         "message": "Unauthorized recipient",
         "name": "unauthorizedRecipient"
       },
       {
-        "code": 7,
+        "code": 5,
         "kind": "errorNode",
         "message": "Insufficient funds in distribution",
         "name": "insufficientFunds"
       },
       {
-        "code": 8,
+        "code": 6,
         "kind": "errorNode",
         "message": "Nothing available to claim",
         "name": "nothingToClaim"
       },
       {
-        "code": 9,
+        "code": 7,
         "kind": "errorNode",
         "message": "Math overflow occurred",
         "name": "mathOverflow"
       },
       {
-        "code": 10,
+        "code": 8,
         "kind": "errorNode",
         "message": "Invalid account data",
         "name": "invalidAccountData"
       },
       {
-        "code": 11,
+        "code": 9,
         "kind": "errorNode",
         "message": "Event authority PDA is invalid",
         "name": "invalidEventAuthority"
       },
       {
-        "code": 12,
+        "code": 10,
         "kind": "errorNode",
         "message": "Mint has PermanentDelegate extension which is not allowed",
         "name": "permanentDelegateNotAllowed"
       },
       {
-        "code": 13,
+        "code": 11,
         "kind": "errorNode",
         "message": "Mint has NonTransferable extension which is not allowed",
         "name": "nonTransferableNotAllowed"
       },
       {
-        "code": 14,
+        "code": 12,
         "kind": "errorNode",
         "message": "Mint has Pausable extension which is not allowed",
         "name": "pausableNotAllowed"
       },
       {
-        "code": 15,
+        "code": 13,
         "kind": "errorNode",
         "message": "Rent calculation failed",
         "name": "rentCalculationFailed"
+      },
+      {
+        "code": 14,
+        "kind": "errorNode",
+        "message": "Requested claim amount exceeds available balance",
+        "name": "exceedsClaimableAmount"
       }
     ],
     "instructions": [
@@ -745,6 +739,15 @@
             "type": {
               "endian": "le",
               "format": "u8",
+              "kind": "numberTypeNode"
+            }
+          },
+          {
+            "kind": "instructionArgumentNode",
+            "name": "amount",
+            "type": {
+              "endian": "le",
+              "format": "u64",
               "kind": "numberTypeNode"
             }
           }

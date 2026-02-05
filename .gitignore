@@ -27,5 +27,8 @@
 # CU tracking
 .cus/
 
+# Coverage
+.coverage/
+
 # Keyfiles
 .keypairs/

@@ -143,4 +143,42 @@ mod tests {
         let result = test_validate_discriminator(&data, 0);
         assert_eq!(result, Err(ProgramError::InvalidAccountData));
     }
+
+    fn test_require_account_len(data: &[u8], len: usize) -> Result<(), ProgramError> {
+        require_account_len!(data, len);
+        Ok(())
+    }
+
+    #[test]
+    fn test_require_account_len_success() {
+        let data = [1, 2, 3, 4, 5];
+        assert!(test_require_account_len(&data, 5).is_ok());
+        assert!(test_require_account_len(&data, 3).is_ok());
+        assert!(test_require_account_len(&data, 1).is_ok());
+    }
+
+    #[test]
+    fn test_require_account_len_too_short() {
+        let data = [1, 2, 3];
+        let result = test_require_account_len(&data, 5);
+        assert_eq!(result, Err(ProgramError::InvalidAccountData));
+    }
+
+    #[test]
+    fn test_require_len_empty_zero() {
+        let data: [u8; 0] = [];
+        assert!(test_require_len(&data, 0).is_ok());
+    }
+
+    #[test]
+    fn test_require_account_len_empty_zero() {
+        let data: [u8; 0] = [];
+        assert!(test_require_account_len(&data, 0).is_ok());
+    }
+
+    #[test]
+    fn test_validate_discriminator_single_byte() {
+        let data = [42u8];
+        assert!(test_validate_discriminator(&data, 42).is_ok());
+    }
 }

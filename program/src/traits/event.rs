@@ -65,4 +65,36 @@ mod tests {
         assert_eq!(&bytes[..8], EVENT_IX_TAG_LE);
         assert_eq!(bytes[8], 42);
     }
+
+    struct TestEventSerialize {
+        pub value: u8,
+    }
+
+    impl EventDiscriminator for TestEventSerialize {
+        const DISCRIMINATOR: u8 = 99;
+    }
+
+    impl EventSerialize for TestEventSerialize {
+        fn to_bytes_inner(&self) -> Vec<u8> {
+            alloc::vec![self.value]
+        }
+    }
+
+    #[test]
+    fn test_event_serialize_to_bytes() {
+        let event = TestEventSerialize { value: 123 };
+        let bytes = event.to_bytes();
+        assert_eq!(bytes.len(), EVENT_DISCRIMINATOR_LEN + 1);
+        assert_eq!(&bytes[..8], EVENT_IX_TAG_LE);
+        assert_eq!(bytes[8], 99);
+        assert_eq!(bytes[9], 123);
+    }
+
+    #[test]
+    fn test_event_serialize_to_bytes_inner() {
+        let event = TestEventSerialize { value: 200 };
+        let bytes = event.to_bytes_inner();
+        assert_eq!(bytes.len(), 1);
+        assert_eq!(bytes[0], 200);
+    }
 }
