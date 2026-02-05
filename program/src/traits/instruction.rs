@@ -3,10 +3,20 @@ use pinocchio::{account::AccountView, error::ProgramError};
 /// Discriminators for the Rewards Program instructions.
 #[repr(u8)]
 pub enum RewardsInstructionDiscriminators {
-    CreateVestingDistribution = 0,
-    AddVestingRecipient = 1,
-    ClaimVesting = 2,
-    CloseVestingDistribution = 3,
+    // Direct Distribution
+    CreateDirectDistribution = 0,
+    AddDirectRecipient = 1,
+    ClaimDirect = 2,
+    CloseDirectDistribution = 3,
+    CloseDirectRecipient = 4,
+
+    // Merkle Distribution
+    CreateMerkleDistribution = 5,
+    ClaimMerkle = 6,
+    CloseMerkleClaim = 7,
+    CloseMerkleDistribution = 8,
+
+    // Shared
     EmitEvent = 228,
 }
 
@@ -15,10 +25,18 @@ impl TryFrom<u8> for RewardsInstructionDiscriminators {
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
         match value {
-            0 => Ok(Self::CreateVestingDistribution),
-            1 => Ok(Self::AddVestingRecipient),
-            2 => Ok(Self::ClaimVesting),
-            3 => Ok(Self::CloseVestingDistribution),
+            // Direct Distribution
+            0 => Ok(Self::CreateDirectDistribution),
+            1 => Ok(Self::AddDirectRecipient),
+            2 => Ok(Self::ClaimDirect),
+            3 => Ok(Self::CloseDirectDistribution),
+            4 => Ok(Self::CloseDirectRecipient),
+            // Merkle Distribution
+            5 => Ok(Self::CreateMerkleDistribution),
+            6 => Ok(Self::ClaimMerkle),
+            7 => Ok(Self::CloseMerkleClaim),
+            8 => Ok(Self::CloseMerkleDistribution),
+            // Shared
             228 => Ok(Self::EmitEvent),
             _ => Err(ProgramError::InvalidInstructionData),
         }
@@ -70,31 +88,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_discriminator_try_from_create_vesting_distribution() {
+    fn test_discriminator_try_from_create_direct_distribution() {
         let result = RewardsInstructionDiscriminators::try_from(0u8);
         assert!(result.is_ok());
-        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::CreateVestingDistribution));
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::CreateDirectDistribution));
     }
 
     #[test]
-    fn test_discriminator_try_from_add_vesting_recipient() {
+    fn test_discriminator_try_from_add_direct_recipient() {
         let result = RewardsInstructionDiscriminators::try_from(1u8);
         assert!(result.is_ok());
-        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::AddVestingRecipient));
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::AddDirectRecipient));
     }
 
     #[test]
-    fn test_discriminator_try_from_claim_vesting() {
+    fn test_discriminator_try_from_claim_direct() {
         let result = RewardsInstructionDiscriminators::try_from(2u8);
         assert!(result.is_ok());
-        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::ClaimVesting));
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::ClaimDirect));
     }
 
     #[test]
-    fn test_discriminator_try_from_close_vesting_distribution() {
+    fn test_discriminator_try_from_close_direct_distribution() {
         let result = RewardsInstructionDiscriminators::try_from(3u8);
         assert!(result.is_ok());
-        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::CloseVestingDistribution));
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::CloseDirectDistribution));
     }
 
     #[test]
@@ -105,8 +123,37 @@ mod tests {
     }
 
     #[test]
-    fn test_discriminator_try_from_invalid() {
+    fn test_discriminator_try_from_merkle_instructions() {
         let result = RewardsInstructionDiscriminators::try_from(5u8);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::CreateMerkleDistribution));
+
+        let result = RewardsInstructionDiscriminators::try_from(6u8);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::ClaimMerkle));
+
+        let result = RewardsInstructionDiscriminators::try_from(7u8);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::CloseMerkleClaim));
+
+        let result = RewardsInstructionDiscriminators::try_from(8u8);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::CloseMerkleDistribution));
+    }
+
+    #[test]
+    fn test_discriminator_try_from_close_direct_recipient() {
+        let result = RewardsInstructionDiscriminators::try_from(4u8);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::CloseDirectRecipient));
+    }
+
+    #[test]
+    fn test_discriminator_try_from_invalid() {
+        let result = RewardsInstructionDiscriminators::try_from(9u8);
+        assert!(matches!(result, Err(ProgramError::InvalidInstructionData)));
+
+        let result = RewardsInstructionDiscriminators::try_from(10u8);
         assert!(matches!(result, Err(ProgramError::InvalidInstructionData)));
 
         let result = RewardsInstructionDiscriminators::try_from(255u8);

@@ -64,6 +64,18 @@ pub enum RewardsProgramError {
     /// (14) Requested claim amount exceeds available balance
     #[error("Requested claim amount exceeds available balance")]
     ExceedsClaimableAmount,
+
+    /// (15) Invalid merkle proof
+    #[error("Invalid merkle proof")]
+    InvalidMerkleProof,
+
+    /// (16) Clawback timestamp not yet reached
+    #[error("Clawback timestamp not yet reached")]
+    ClawbackNotReached,
+
+    /// (17) Claim has not been fully vested
+    #[error("Claim has not been fully vested")]
+    ClaimNotFullyVested,
 }
 
 impl From<RewardsProgramError> for ProgramError {

@@ -1,0 +1,317 @@
+use alloc::vec;
+use alloc::vec::Vec;
+use codama::CodamaAccount;
+use pinocchio::{
+    account::AccountView,
+    cpi::{Seed, Signer},
+    error::ProgramError,
+    Address,
+};
+
+use crate::errors::RewardsProgramError;
+use crate::traits::{
+    AccountParse, AccountSerialize, AccountSize, AccountValidation, Discriminator, Distribution, DistributionSigner,
+    PdaAccount, PdaSeeds, RewardsAccountDiscriminators, Versioned,
+};
+use crate::{assert_no_padding, require_account_len, validate_discriminator};
+
+/// DirectDistribution account state
+///
+/// Represents a direct distribution configuration that holds tokens
+/// to be distributed to explicitly-added recipients. Vesting schedules
+/// are per-recipient (stored in DirectRecipient accounts).
+///
+/// # PDA Seeds
+/// `[b"direct_distribution", mint.as_ref(), authority.as_ref(), seeds.as_ref()]`
+#[derive(Clone, Debug, PartialEq, CodamaAccount)]
+#[repr(C)]
+pub struct DirectDistribution {
+    pub bump: u8,
+    _padding: [u8; 7],
+    pub authority: Address,
+    pub mint: Address,
+    pub seeds: Address,
+    pub total_allocated: u64,
+    pub total_claimed: u64,
+}
+
+assert_no_padding!(DirectDistribution, 1 + 7 + 32 + 32 + 32 + 8 + 8);
+
+impl Discriminator for DirectDistribution {
+    const DISCRIMINATOR: u8 = RewardsAccountDiscriminators::DirectDistribution as u8;
+}
+
+impl Versioned for DirectDistribution {
+    const VERSION: u8 = 1;
+}
+
+impl AccountSize for DirectDistribution {
+    const DATA_LEN: usize = 1 + 7 + 32 + 32 + 32 + 8 + 8; // 120
+}
+
+impl AccountParse for DirectDistribution {
+    fn parse_from_bytes(data: &[u8]) -> Result<Self, ProgramError> {
+        require_account_len!(data, Self::LEN);
+        validate_discriminator!(data, Self::DISCRIMINATOR);
+
+        // Skip discriminator (byte 0) and version (byte 1)
+        let data = &data[2..];
+
+        let bump = data[0];
+        // Skip padding bytes [1..8]
+        let authority =
+            Address::new_from_array(data[8..40].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
+        let mint =
+            Address::new_from_array(data[40..72].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
+        let seeds =
+            Address::new_from_array(data[72..104].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
+        let total_allocated =
+            u64::from_le_bytes(data[104..112].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
+        let total_claimed =
+            u64::from_le_bytes(data[112..120].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
+
+        Ok(Self { bump, _padding: [0u8; 7], authority, mint, seeds, total_allocated, total_claimed })
+    }
+}
+
+impl AccountSerialize for DirectDistribution {
+    #[inline(always)]
+    fn to_bytes_inner(&self) -> Vec<u8> {
+        let mut data = Vec::with_capacity(Self::DATA_LEN);
+        data.push(self.bump);
+        data.extend_from_slice(&[0u8; 7]); // padding
+        data.extend_from_slice(self.authority.as_ref());
+        data.extend_from_slice(self.mint.as_ref());
+        data.extend_from_slice(self.seeds.as_ref());
+        data.extend_from_slice(&self.total_allocated.to_le_bytes());
+        data.extend_from_slice(&self.total_claimed.to_le_bytes());
+        data
+    }
+}
+
+impl AccountValidation for DirectDistribution {}
+
+impl PdaSeeds for DirectDistribution {
+    const PREFIX: &'static [u8] = b"direct_distribution";
+
+    fn seeds(&self) -> Vec<&[u8]> {
+        vec![Self::PREFIX, self.mint.as_ref(), self.authority.as_ref(), self.seeds.as_ref()]
+    }
+
+    fn seeds_with_bump<'a>(&'a self, bump: &'a [u8; 1]) -> Vec<Seed<'a>> {
+        vec![
+            Seed::from(Self::PREFIX),
+            Seed::from(self.mint.as_ref()),
+            Seed::from(self.authority.as_ref()),
+            Seed::from(self.seeds.as_ref()),
+            Seed::from(bump.as_slice()),
+        ]
+    }
+}
+
+impl PdaAccount for DirectDistribution {
+    #[inline(always)]
+    fn bump(&self) -> u8 {
+        self.bump
+    }
+}
+
+impl Distribution for DirectDistribution {
+    #[inline(always)]
+    fn mint(&self) -> &Address {
+        &self.mint
+    }
+
+    #[inline(always)]
+    fn authority(&self) -> &Address {
+        &self.authority
+    }
+
+    #[inline(always)]
+    fn seeds_key(&self) -> &Address {
+        &self.seeds
+    }
+
+    #[inline(always)]
+    fn total_claimed(&self) -> u64 {
+        self.total_claimed
+    }
+
+    #[inline(always)]
+    fn set_total_claimed(&mut self, amount: u64) {
+        self.total_claimed = amount;
+    }
+}
+
+impl DistributionSigner for DirectDistribution {
+    #[inline(always)]
+    fn with_signer<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&[Signer<'_, '_>]) -> R,
+    {
+        let bump_seed = [self.bump];
+        let pda_seeds = [
+            Seed::from(Self::PREFIX),
+            Seed::from(self.mint.as_ref()),
+            Seed::from(self.authority.as_ref()),
+            Seed::from(self.seeds.as_ref()),
+            Seed::from(bump_seed.as_slice()),
+        ];
+        let signers = [Signer::from(&pda_seeds)];
+        f(&signers)
+    }
+}
+
+impl DirectDistribution {
+    #[inline(always)]
+    pub fn new(bump: u8, authority: Address, mint: Address, seeds: Address) -> Self {
+        Self { bump, _padding: [0u8; 7], authority, mint, seeds, total_allocated: 0, total_claimed: 0 }
+    }
+
+    #[inline(always)]
+    pub fn from_account(data: &[u8], account: &AccountView, program_id: &Address) -> Result<Self, ProgramError> {
+        let state = Self::parse_from_bytes(data)?;
+        state.validate_self(account, program_id)?;
+        Ok(state)
+    }
+
+    pub fn remaining_unallocated(&self, vault_balance: u64) -> Result<u64, RewardsProgramError> {
+        let outstanding =
+            self.total_allocated.checked_sub(self.total_claimed).ok_or(RewardsProgramError::MathOverflow)?;
+        vault_balance.checked_sub(outstanding).ok_or(RewardsProgramError::MathOverflow)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::traits::{Distribution, PdaAccount};
+
+    fn create_test_distribution() -> DirectDistribution {
+        DirectDistribution::new(
+            255,
+            Address::new_from_array([1u8; 32]),
+            Address::new_from_array([2u8; 32]),
+            Address::new_from_array([3u8; 32]),
+        )
+    }
+
+    #[test]
+    fn test_direct_distribution_new() {
+        let dist = create_test_distribution();
+        assert_eq!(dist.bump, 255);
+        assert_eq!(dist.total_allocated, 0);
+        assert_eq!(dist.total_claimed, 0);
+    }
+
+    #[test]
+    fn test_direct_distribution_to_bytes_inner() {
+        let dist = create_test_distribution();
+        let bytes = dist.to_bytes_inner();
+
+        assert_eq!(bytes.len(), DirectDistribution::DATA_LEN);
+        assert_eq!(bytes[0], 255); // bump
+    }
+
+    #[test]
+    fn test_direct_distribution_to_bytes() {
+        let dist = create_test_distribution();
+        let bytes = dist.to_bytes();
+
+        assert_eq!(bytes.len(), DirectDistribution::LEN);
+        assert_eq!(bytes[0], DirectDistribution::DISCRIMINATOR);
+        assert_eq!(bytes[1], DirectDistribution::VERSION);
+        assert_eq!(bytes[2], 255); // bump
+    }
+
+    #[test]
+    fn test_remaining_unallocated() {
+        let mut dist = create_test_distribution();
+        dist.total_allocated = 500;
+        dist.total_claimed = 100;
+
+        // vault has 1000, allocated 500, claimed 100
+        // remaining = 1000 - (500 - 100) = 600
+        assert_eq!(dist.remaining_unallocated(1000).unwrap(), 600);
+    }
+
+    #[test]
+    fn test_roundtrip_serialization() {
+        let dist = create_test_distribution();
+        let bytes = dist.to_bytes();
+        let deserialized = DirectDistribution::parse_from_bytes(&bytes).unwrap();
+
+        assert_eq!(deserialized.bump, dist.bump);
+        assert_eq!(deserialized.authority, dist.authority);
+        assert_eq!(deserialized.mint, dist.mint);
+        assert_eq!(deserialized.seeds, dist.seeds);
+        assert_eq!(deserialized.total_allocated, dist.total_allocated);
+        assert_eq!(deserialized.total_claimed, dist.total_claimed);
+    }
+
+    #[test]
+    fn test_pda_seeds() {
+        let dist = create_test_distribution();
+        let seeds = dist.seeds();
+        assert_eq!(seeds.len(), 4);
+        assert_eq!(seeds[0], DirectDistribution::PREFIX);
+        assert_eq!(seeds[1], dist.mint.as_ref());
+        assert_eq!(seeds[2], dist.authority.as_ref());
+        assert_eq!(seeds[3], dist.seeds.as_ref());
+    }
+
+    #[test]
+    fn test_remaining_unallocated_zero_allocated() {
+        let dist = create_test_distribution();
+        assert_eq!(dist.remaining_unallocated(1000).unwrap(), 1000);
+    }
+
+    #[test]
+    fn test_remaining_unallocated_insufficient_vault() {
+        let mut dist = create_test_distribution();
+        dist.total_allocated = 1000;
+        dist.total_claimed = 0;
+        // vault has less than outstanding -> error (invariant violation)
+        assert!(dist.remaining_unallocated(500).is_err());
+    }
+
+    #[test]
+    fn test_remaining_unallocated_claimed_exceeds_allocated() {
+        let mut dist = create_test_distribution();
+        dist.total_allocated = 500;
+        dist.total_claimed = 600;
+        // claimed > allocated -> error (invariant violation)
+        assert!(dist.remaining_unallocated(1000).is_err());
+    }
+
+    #[test]
+    fn test_validate_authority_success() {
+        let dist = create_test_distribution();
+        let authority = Address::new_from_array([1u8; 32]);
+        assert!(Distribution::validate_authority(&dist, &authority).is_ok());
+    }
+
+    #[test]
+    fn test_validate_authority_fail() {
+        let dist = create_test_distribution();
+        let wrong_authority = Address::new_from_array([99u8; 32]);
+        assert!(Distribution::validate_authority(&dist, &wrong_authority).is_err());
+    }
+
+    #[test]
+    fn test_distribution_trait_accessors() {
+        let dist = create_test_distribution();
+        assert_eq!(Distribution::mint(&dist), &dist.mint);
+        assert_eq!(Distribution::authority(&dist), &dist.authority);
+        assert_eq!(Distribution::seeds_key(&dist), &dist.seeds);
+        assert_eq!(PdaAccount::bump(&dist), dist.bump);
+        assert_eq!(Distribution::total_claimed(&dist), dist.total_claimed);
+    }
+
+    #[test]
+    fn test_distribution_add_claimed() {
+        let mut dist = create_test_distribution();
+        Distribution::add_claimed(&mut dist, 500).unwrap();
+        assert_eq!(dist.total_claimed, 500);
+    }
+}

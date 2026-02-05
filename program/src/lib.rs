@@ -4,8 +4,9 @@
 //! schedules and claimable allocations.
 //!
 //! ## Features
-//! - Vesting distributions with configurable schedules
-//! - Per-recipient allocation tracking
+//! - Direct distributions with explicit recipient lists
+//! - Merkle distributions with proof-based claims
+//! - Configurable vesting schedules for both distribution types
 //! - Claimable rewards calculations
 //! - Token-2022 extension blocking
 //!

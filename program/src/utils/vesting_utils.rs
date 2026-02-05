@@ -5,13 +5,15 @@ use crate::errors::RewardsProgramError;
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum VestingScheduleType {
-    Linear = 0,
+    Immediate = 0,
+    Linear = 1,
 }
 
 impl VestingScheduleType {
     pub fn from_u8(value: u8) -> Option<Self> {
         match value {
-            0 => Some(VestingScheduleType::Linear),
+            0 => Some(VestingScheduleType::Immediate),
+            1 => Some(VestingScheduleType::Linear),
             _ => None,
         }
     }
@@ -80,8 +82,9 @@ mod tests {
 
     #[test]
     fn test_vesting_schedule_type_from_u8() {
-        assert_eq!(VestingScheduleType::from_u8(0), Some(VestingScheduleType::Linear));
-        assert_eq!(VestingScheduleType::from_u8(1), None);
+        assert_eq!(VestingScheduleType::from_u8(0), Some(VestingScheduleType::Immediate));
+        assert_eq!(VestingScheduleType::from_u8(1), Some(VestingScheduleType::Linear));
+        assert_eq!(VestingScheduleType::from_u8(2), None);
         assert_eq!(VestingScheduleType::from_u8(255), None);
     }
 

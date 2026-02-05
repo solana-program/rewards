@@ -1,4 +1,4 @@
-use rewards_program_client::accounts::{VestingDistribution, VestingRecipient};
+use rewards_program_client::accounts::{DirectDistribution, DirectRecipient, MerkleClaim, MerkleDistribution};
 use solana_sdk::{instruction::InstructionError, pubkey::Pubkey, transaction::TransactionError};
 
 use crate::utils::{TestContext, PROGRAM_ID};
@@ -25,8 +25,8 @@ pub fn assert_custom_error(tx_error: TransactionError, expected_code: u32) {
     assert_instruction_error(tx_error, InstructionError::Custom(expected_code));
 }
 
-/// Assert that a vesting distribution account exists with expected values
-pub fn assert_vesting_distribution(
+/// Assert that a direct distribution account exists with expected values
+pub fn assert_direct_distribution(
     ctx: &TestContext,
     distribution_pda: &Pubkey,
     expected_authority: &Pubkey,
@@ -36,15 +36,15 @@ pub fn assert_vesting_distribution(
     let account = ctx.get_account(distribution_pda).expect("Distribution account should exist");
     assert_eq!(account.owner, PROGRAM_ID, "Distribution should be owned by program");
 
-    let data = VestingDistribution::from_bytes(&account.data).expect("Failed to deserialize distribution");
+    let data = DirectDistribution::from_bytes(&account.data).expect("Failed to deserialize distribution");
 
     assert_eq!(data.bump, expected_bump);
     assert_eq!(data.authority, *expected_authority);
     assert_eq!(data.mint, *expected_mint);
 }
 
-/// Assert that a vesting recipient account exists with expected values
-pub fn assert_vesting_recipient(
+/// Assert that a direct recipient account exists with expected values
+pub fn assert_direct_recipient(
     ctx: &TestContext,
     recipient_pda: &Pubkey,
     expected_recipient: &Pubkey,
@@ -55,7 +55,7 @@ pub fn assert_vesting_recipient(
     let account = ctx.get_account(recipient_pda).expect("Recipient account should exist");
     assert_eq!(account.owner, PROGRAM_ID, "Recipient should be owned by program");
 
-    let data = VestingRecipient::from_bytes(&account.data).expect("Failed to deserialize recipient");
+    let data = DirectRecipient::from_bytes(&account.data).expect("Failed to deserialize recipient");
 
     assert_eq!(data.bump, expected_bump);
     assert_eq!(data.recipient, *expected_recipient);
@@ -68,13 +68,35 @@ pub fn assert_account_closed(ctx: &TestContext, pubkey: &Pubkey) {
     assert!(ctx.get_account(pubkey).is_none(), "Account {} should be closed", pubkey);
 }
 
-/// Assert that an account exists
-pub fn assert_account_exists(context: &TestContext, pubkey: &Pubkey) {
-    let account = context.get_account(pubkey).unwrap_or_else(|| panic!("Account {pubkey} should exist"));
-    assert!(!account.data.is_empty(), "Account data should not be empty");
+/// Assert that a merkle distribution account exists with expected values
+pub fn assert_merkle_distribution(
+    ctx: &TestContext,
+    distribution_pda: &Pubkey,
+    expected_authority: &Pubkey,
+    expected_mint: &Pubkey,
+    expected_merkle_root: &[u8; 32],
+    expected_total_amount: u64,
+    expected_bump: u8,
+) {
+    let account = ctx.get_account(distribution_pda).expect("Distribution account should exist");
+    assert_eq!(account.owner, PROGRAM_ID, "Distribution should be owned by program");
+
+    let data = MerkleDistribution::from_bytes(&account.data).expect("Failed to deserialize merkle distribution");
+
+    assert_eq!(data.bump, expected_bump);
+    assert_eq!(data.authority, *expected_authority);
+    assert_eq!(data.mint, *expected_mint);
+    assert_eq!(data.merkle_root, *expected_merkle_root);
+    assert_eq!(data.total_amount, expected_total_amount);
 }
 
-/// Assert that an account does not exist
-pub fn assert_account_not_exists(context: &TestContext, pubkey: &Pubkey) {
-    assert!(context.get_account(pubkey).is_none(), "Account {pubkey} should not exist");
+/// Assert that a merkle claim account exists with expected values
+pub fn assert_merkle_claim(ctx: &TestContext, claim_pda: &Pubkey, expected_claimed_amount: u64, expected_bump: u8) {
+    let account = ctx.get_account(claim_pda).expect("Claim account should exist");
+    assert_eq!(account.owner, PROGRAM_ID, "Claim should be owned by program");
+
+    let data = MerkleClaim::from_bytes(&account.data).expect("Failed to deserialize merkle claim");
+
+    assert_eq!(data.bump, expected_bump);
+    assert_eq!(data.claimed_amount, expected_claimed_amount);
 }

@@ -81,8 +81,10 @@ pub trait AccountDeserialize: AccountSize {
 /// Account discriminator values for this program
 #[repr(u8)]
 pub enum RewardsAccountDiscriminators {
-    VestingDistribution = 0,
-    VestingRecipient = 1,
+    DirectDistribution = 0,
+    DirectRecipient = 1,
+    MerkleDistribution = 2,
+    MerkleClaim = 3,
 }
 
 /// Manual account deserialization (non-zero-copy)
