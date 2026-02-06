@@ -1,9 +1,9 @@
 use solana_sdk::signature::Signer;
 
-use crate::fixtures::{ClaimDirectFixture, ClaimDirectSetup};
+use crate::fixtures::{ClaimDirectFixture, ClaimDirectSetup, IMMEDIATE_SCHEDULE};
 use crate::utils::{
-    assert_direct_recipient, assert_rewards_error, test_empty_data, test_missing_signer, test_not_writable,
-    test_wrong_current_program, RewardsError, TestContext,
+    assert_direct_recipient, assert_rewards_error, expected_linear_unlock, test_empty_data, test_missing_signer,
+    test_not_writable, test_wrong_current_program, RewardsError, TestContext,
 };
 
 #[test]
@@ -94,13 +94,8 @@ fn test_claim_direct_partial_25_percent() {
     test_ix.send_expect_success(&mut ctx);
 
     let balance = ctx.get_token_balance(&setup.recipient_token_account);
-    let expected_amount = setup.amount / 4;
-    assert!(
-        balance >= expected_amount - 1 && balance <= expected_amount + 1,
-        "Expected ~{}, got {}",
-        expected_amount,
-        balance
-    );
+    let expected = expected_linear_unlock(setup.amount, setup.start_ts, setup.end_ts, timestamp_25_percent);
+    assert_eq!(balance, expected, "Balance should match exact linear unlock at 25%");
 }
 
 #[test]
@@ -116,13 +111,8 @@ fn test_claim_direct_partial_50_percent() {
     test_ix.send_expect_success(&mut ctx);
 
     let balance = ctx.get_token_balance(&setup.recipient_token_account);
-    let expected_amount = setup.amount / 2;
-    assert!(
-        balance >= expected_amount - 1 && balance <= expected_amount + 1,
-        "Expected ~{}, got {}",
-        expected_amount,
-        balance
-    );
+    let expected = expected_linear_unlock(setup.amount, setup.start_ts, setup.end_ts, timestamp_50_percent);
+    assert_eq!(balance, expected, "Balance should match exact linear unlock at 50%");
 }
 
 #[test]
@@ -139,13 +129,8 @@ fn test_claim_direct_multiple_claims() {
     test_ix1.send_expect_success(&mut ctx);
 
     let balance_after_first = ctx.get_token_balance(&setup.recipient_token_account);
-    let expected_first = setup.amount / 4;
-    assert!(
-        balance_after_first >= expected_first - 1 && balance_after_first <= expected_first + 1,
-        "Expected ~{}, got {}",
-        expected_first,
-        balance_after_first
-    );
+    let expected_first = expected_linear_unlock(setup.amount, setup.start_ts, setup.end_ts, timestamp_25_percent);
+    assert_eq!(balance_after_first, expected_first, "Balance should match exact linear unlock at 25%");
 
     let timestamp_50_percent = setup.start_ts + (duration / 2);
     ctx.warp_to_timestamp(timestamp_50_percent);
@@ -154,13 +139,8 @@ fn test_claim_direct_multiple_claims() {
     test_ix2.send_expect_success(&mut ctx);
 
     let balance_after_second = ctx.get_token_balance(&setup.recipient_token_account);
-    let expected_total = setup.amount / 2;
-    assert!(
-        balance_after_second >= expected_total - 1 && balance_after_second <= expected_total + 1,
-        "Expected ~{}, got {}",
-        expected_total,
-        balance_after_second
-    );
+    let expected_total = expected_linear_unlock(setup.amount, setup.start_ts, setup.end_ts, timestamp_50_percent);
+    assert_eq!(balance_after_second, expected_total, "Balance should match exact linear unlock at 50%");
 }
 
 #[test]
@@ -208,4 +188,64 @@ fn test_claim_direct_unauthorized() {
     let error = test_ix.send_expect_error(&mut ctx);
 
     assert_rewards_error(error, RewardsError::UnauthorizedRecipient);
+}
+
+#[test]
+fn test_claim_direct_immediate_vesting() {
+    let mut ctx = TestContext::new();
+    let setup = ClaimDirectSetup::builder(&mut ctx).schedule_type(IMMEDIATE_SCHEDULE).warp_to_end(false).build();
+
+    let test_ix = setup.build_instruction(&ctx);
+    test_ix.send_expect_success(&mut ctx);
+
+    let balance = ctx.get_token_balance(&setup.recipient_token_account);
+    assert_eq!(balance, setup.amount);
+
+    assert_direct_recipient(
+        &ctx,
+        &setup.recipient_pda,
+        &setup.recipient.pubkey(),
+        setup.amount,
+        setup.amount,
+        setup.recipient_bump,
+    );
+}
+
+#[test]
+fn test_claim_direct_specific_amount() {
+    let mut ctx = TestContext::new();
+    let setup = ClaimDirectSetup::new(&mut ctx);
+
+    let claim_amount = setup.amount / 3;
+    let test_ix = setup.build_instruction_with_amount(claim_amount);
+    test_ix.send_expect_success(&mut ctx);
+
+    let balance = ctx.get_token_balance(&setup.recipient_token_account);
+    assert_eq!(balance, claim_amount);
+
+    assert_direct_recipient(
+        &ctx,
+        &setup.recipient_pda,
+        &setup.recipient.pubkey(),
+        setup.amount,
+        claim_amount,
+        setup.recipient_bump,
+    );
+}
+
+#[test]
+fn test_claim_direct_exceeds_claimable_amount() {
+    let mut ctx = TestContext::new();
+    let setup = ClaimDirectSetup::builder(&mut ctx).warp_to_end(false).build();
+
+    // Warp to 50%
+    let duration = setup.end_ts - setup.start_ts;
+    let mid_point = setup.start_ts + (duration / 2);
+    ctx.warp_to_timestamp(mid_point);
+
+    // Request more than the 50% that's vested
+    let test_ix = setup.build_instruction_with_amount(setup.amount);
+    let error = test_ix.send_expect_error(&mut ctx);
+
+    assert_rewards_error(error, RewardsError::ExceedsClaimableAmount);
 }

@@ -10,6 +10,8 @@ mod test_claim_merkle;
 #[cfg(test)]
 mod test_close_direct_distribution;
 #[cfg(test)]
+mod test_close_direct_recipient;
+#[cfg(test)]
 mod test_close_merkle_claim;
 #[cfg(test)]
 mod test_close_merkle_distribution;

@@ -1,4 +1,5 @@
-use solana_sdk::signature::Signer;
+use solana_sdk::signer::Signer;
+use spl_token_2022::extension::ExtensionType;
 
 use crate::fixtures::{CreateDirectDistributionFixture, CreateDirectDistributionSetup};
 use crate::utils::{
@@ -119,4 +120,37 @@ fn test_create_direct_distribution_funds_vault() {
 
     let vault_balance_after = ctx.get_token_balance(&setup.vault);
     assert_eq!(vault_balance_after, amount);
+}
+
+#[test]
+fn test_create_direct_distribution_rejects_permanent_delegate() {
+    let mut ctx = TestContext::new();
+    let setup = CreateDirectDistributionSetup::new_with_extension(&mut ctx, ExtensionType::PermanentDelegate);
+
+    let instruction = setup.build_instruction(&ctx);
+    let error = instruction.send_expect_error(&mut ctx);
+
+    assert_rewards_error(error, RewardsError::PermanentDelegateNotAllowed);
+}
+
+#[test]
+fn test_create_direct_distribution_rejects_non_transferable() {
+    let mut ctx = TestContext::new();
+    let setup = CreateDirectDistributionSetup::new_with_extension(&mut ctx, ExtensionType::NonTransferable);
+
+    let instruction = setup.build_instruction(&ctx);
+    let error = instruction.send_expect_error(&mut ctx);
+
+    assert_rewards_error(error, RewardsError::NonTransferableNotAllowed);
+}
+
+#[test]
+fn test_create_direct_distribution_rejects_pausable() {
+    let mut ctx = TestContext::new();
+    let setup = CreateDirectDistributionSetup::new_with_extension(&mut ctx, ExtensionType::Pausable);
+
+    let instruction = setup.build_instruction(&ctx);
+    let error = instruction.send_expect_error(&mut ctx);
+
+    assert_rewards_error(error, RewardsError::PausableNotAllowed);
 }
