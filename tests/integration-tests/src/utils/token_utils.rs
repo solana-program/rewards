@@ -158,6 +158,38 @@ impl TestContext {
         ata
     }
 
+    pub fn create_mint_for_program(
+        &mut self,
+        mint: &Keypair,
+        mint_authority: &Pubkey,
+        decimals: u8,
+        token_program: &Pubkey,
+    ) {
+        if *token_program == TOKEN_2022_PROGRAM_ID {
+            self.create_token_2022_mint(mint, mint_authority, decimals);
+        } else {
+            self.create_mint(mint, mint_authority, decimals);
+        }
+    }
+
+    pub fn create_ata_for_program(&mut self, owner: &Pubkey, mint: &Pubkey, token_program: &Pubkey) -> Pubkey {
+        self.create_ata_for_program_with_balance(owner, mint, 0, token_program)
+    }
+
+    pub fn create_ata_for_program_with_balance(
+        &mut self,
+        owner: &Pubkey,
+        mint: &Pubkey,
+        amount: u64,
+        token_program: &Pubkey,
+    ) -> Pubkey {
+        if *token_program == TOKEN_2022_PROGRAM_ID {
+            self.create_token_2022_account_with_balance(owner, mint, amount)
+        } else {
+            self.create_token_account_with_balance(owner, mint, amount)
+        }
+    }
+
     pub fn create_token_2022_mint_with_extension(
         &mut self,
         mint: &Keypair,

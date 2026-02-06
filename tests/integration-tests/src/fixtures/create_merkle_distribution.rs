@@ -188,31 +188,22 @@ impl<'a> CreateMerkleDistributionSetupBuilder<'a> {
         let mint = Keypair::new();
         let token_program = self.token_program;
 
-        if token_program == TOKEN_2022_PROGRAM_ID {
-            self.ctx.create_token_2022_mint(&mint, &self.ctx.payer.pubkey(), 6);
-        } else {
-            self.ctx.create_mint(&mint, &self.ctx.payer.pubkey(), 6);
-        }
+        self.ctx.create_mint_for_program(&mint, &self.ctx.payer.pubkey(), 6, &token_program);
 
         let (distribution_pda, bump) =
             find_merkle_distribution_pda(&mint.pubkey(), &authority.pubkey(), &seeds.pubkey());
-
-        let vault = if token_program == TOKEN_2022_PROGRAM_ID {
-            self.ctx.create_token_2022_account(&distribution_pda, &mint.pubkey())
-        } else {
-            self.ctx.create_token_account(&distribution_pda, &mint.pubkey())
-        };
-
-        let authority_token_account = if token_program == TOKEN_2022_PROGRAM_ID {
-            self.ctx.create_token_2022_account_with_balance(&authority.pubkey(), &mint.pubkey(), self.amount)
-        } else {
-            self.ctx.create_token_account_with_balance(&authority.pubkey(), &mint.pubkey(), self.amount)
-        };
+        let vault = self.ctx.create_ata_for_program(&distribution_pda, &mint.pubkey(), &token_program);
+        let authority_token_account = self.ctx.create_ata_for_program_with_balance(
+            &authority.pubkey(),
+            &mint.pubkey(),
+            self.amount,
+            &token_program,
+        );
 
         let current_ts = self.ctx.get_current_timestamp();
         let clawback_ts = self.clawback_ts.unwrap_or(current_ts + DEFAULT_CLAWBACK_OFFSET);
         let total_amount = self.total_amount.unwrap_or(self.amount);
-        let merkle_root = self.merkle_root.unwrap_or([1u8; 32]); // Default placeholder root
+        let merkle_root = self.merkle_root.unwrap_or([1u8; 32]);
 
         CreateMerkleDistributionSetup {
             authority,

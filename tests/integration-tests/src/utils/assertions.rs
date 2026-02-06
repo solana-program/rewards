@@ -34,11 +34,6 @@ pub fn assert_instruction_error(tx_error: TransactionError, expected: Instructio
     }
 }
 
-/// Assert that a transaction error is a custom program error with the given code
-pub fn assert_custom_error(tx_error: TransactionError, expected_code: u32) {
-    assert_instruction_error(tx_error, InstructionError::Custom(expected_code));
-}
-
 /// Assert that a direct distribution account exists with expected values
 pub fn assert_direct_distribution(
     ctx: &TestContext,

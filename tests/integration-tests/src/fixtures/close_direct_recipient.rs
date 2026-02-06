@@ -115,11 +115,10 @@ impl<'a> CloseDirectRecipientSetupBuilder<'a> {
     }
 
     pub fn build(self) -> CloseDirectRecipientSetup {
-        let mut distribution_builder = CreateDirectDistributionSetup::builder(self.ctx).amount(self.amount * 2);
-        if self.token_program == TOKEN_2022_PROGRAM_ID {
-            distribution_builder = distribution_builder.token_2022();
-        }
-        let distribution_setup = distribution_builder.build();
+        let distribution_setup = CreateDirectDistributionSetup::builder(self.ctx)
+            .amount(self.amount * 2)
+            .token_program(self.token_program)
+            .build();
         let create_ix = distribution_setup.build_instruction(self.ctx);
         create_ix.send_expect_success(self.ctx);
 
@@ -154,11 +153,11 @@ impl<'a> CloseDirectRecipientSetupBuilder<'a> {
         add_ix.send_expect_success(self.ctx);
 
         // Claim full amount so recipient can be closed
-        let recipient_token_account = if self.token_program == TOKEN_2022_PROGRAM_ID {
-            self.ctx.create_token_2022_account(&recipient.pubkey(), &distribution_setup.mint.pubkey())
-        } else {
-            self.ctx.create_token_account(&recipient.pubkey(), &distribution_setup.mint.pubkey())
-        };
+        let recipient_token_account = self.ctx.create_ata_for_program(
+            &recipient.pubkey(),
+            &distribution_setup.mint.pubkey(),
+            &self.token_program,
+        );
 
         let claim_setup = ClaimDirectSetup {
             recipient: recipient.insecure_clone(),

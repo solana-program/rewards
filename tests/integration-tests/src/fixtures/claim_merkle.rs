@@ -264,16 +264,12 @@ impl<'a> ClaimMerkleSetupBuilder<'a> {
         let merkle_tree = MerkleTree::new(leaves);
         let total_distribution_amount = self.claimant_amount * self.num_claimants as u64;
 
-        let mut distribution_builder = CreateMerkleDistributionSetup::builder(self.ctx)
+        let distribution_setup = CreateMerkleDistributionSetup::builder(self.ctx)
             .amount(total_distribution_amount)
             .total_amount(total_distribution_amount)
-            .merkle_root(merkle_tree.root);
-
-        if self.token_program == TOKEN_2022_PROGRAM_ID {
-            distribution_builder = distribution_builder.token_2022();
-        }
-
-        let distribution_setup = distribution_builder.build();
+            .merkle_root(merkle_tree.root)
+            .token_program(self.token_program)
+            .build();
         let create_ix = distribution_setup.build_instruction(self.ctx);
         create_ix.send_expect_success(self.ctx);
 
@@ -281,11 +277,8 @@ impl<'a> ClaimMerkleSetupBuilder<'a> {
 
         let proof = merkle_tree.get_proof_for_claimant(&claimant.pubkey()).unwrap();
 
-        let claimant_token_account = if self.token_program == TOKEN_2022_PROGRAM_ID {
-            self.ctx.create_token_2022_account(&claimant.pubkey(), &distribution_setup.mint.pubkey())
-        } else {
-            self.ctx.create_token_account(&claimant.pubkey(), &distribution_setup.mint.pubkey())
-        };
+        let claimant_token_account =
+            self.ctx.create_ata_for_program(&claimant.pubkey(), &distribution_setup.mint.pubkey(), &self.token_program);
 
         if self.warp_to_end {
             self.ctx.warp_to_timestamp(end_ts);
