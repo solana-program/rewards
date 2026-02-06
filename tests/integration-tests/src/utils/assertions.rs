@@ -5,6 +5,20 @@ use crate::utils::{TestContext, PROGRAM_ID};
 
 pub use rewards_program_client::errors::RewardsProgramError as RewardsError;
 
+/// Mirrors the program's `calculate_linear_unlock` formula exactly:
+/// `total_amount * elapsed / duration` using u128 intermediate math.
+pub fn expected_linear_unlock(total_amount: u64, start_ts: i64, end_ts: i64, current_ts: i64) -> u64 {
+    if current_ts <= start_ts {
+        return 0;
+    }
+    if current_ts >= end_ts {
+        return total_amount;
+    }
+    let elapsed = (current_ts - start_ts) as u128;
+    let duration = (end_ts - start_ts) as u128;
+    ((total_amount as u128) * elapsed / duration) as u64
+}
+
 /// Assert that a transaction error is the expected rewards program error
 pub fn assert_rewards_error(tx_error: TransactionError, expected: RewardsError) {
     assert_instruction_error(tx_error, InstructionError::Custom(expected as u32));

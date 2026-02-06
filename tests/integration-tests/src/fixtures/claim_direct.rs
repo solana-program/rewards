@@ -159,6 +159,7 @@ pub struct ClaimDirectSetupBuilder<'a> {
     ctx: &'a mut TestContext,
     token_program: Pubkey,
     amount: u64,
+    schedule_type: u8,
     start_ts: Option<i64>,
     end_ts: Option<i64>,
     warp_to_end: bool,
@@ -170,6 +171,7 @@ impl<'a> ClaimDirectSetupBuilder<'a> {
             ctx,
             token_program: TOKEN_PROGRAM_ID,
             amount: DEFAULT_RECIPIENT_AMOUNT,
+            schedule_type: LINEAR_SCHEDULE,
             start_ts: None,
             end_ts: None,
             warp_to_end: true,
@@ -206,6 +208,11 @@ impl<'a> ClaimDirectSetupBuilder<'a> {
         self
     }
 
+    pub fn schedule_type(mut self, schedule_type: u8) -> Self {
+        self.schedule_type = schedule_type;
+        self
+    }
+
     pub fn build(self) -> ClaimDirectSetup {
         let mut distribution_builder = CreateDirectDistributionSetup::builder(self.ctx).amount(self.amount * 2);
         if self.token_program == TOKEN_2022_PROGRAM_ID {
@@ -230,7 +237,7 @@ impl<'a> ClaimDirectSetupBuilder<'a> {
             recipient_pda,
             recipient_bump,
             amount: self.amount,
-            schedule_type: LINEAR_SCHEDULE,
+            schedule_type: self.schedule_type,
             start_ts,
             end_ts,
             token_program: self.token_program,

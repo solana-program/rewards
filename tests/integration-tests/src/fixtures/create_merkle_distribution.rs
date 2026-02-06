@@ -3,7 +3,7 @@ use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signer},
 };
-use spl_token_2022::ID as TOKEN_2022_PROGRAM_ID;
+use spl_token_2022::{extension::ExtensionType, ID as TOKEN_2022_PROGRAM_ID};
 use spl_token_interface::ID as TOKEN_PROGRAM_ID;
 
 use crate::utils::{
@@ -41,6 +41,38 @@ impl CreateMerkleDistributionSetup {
 
     pub fn new_token_2022(ctx: &mut TestContext) -> Self {
         Self::builder(ctx).token_2022().build()
+    }
+
+    pub fn new_with_extension(ctx: &mut TestContext, extension_type: ExtensionType) -> Self {
+        let amount = DEFAULT_MERKLE_DISTRIBUTION_AMOUNT;
+        let authority = ctx.create_funded_keypair();
+        let seeds = Keypair::new();
+        let mint = Keypair::new();
+
+        ctx.create_token_2022_mint_with_extension(&mint, &ctx.payer.pubkey(), 6, extension_type);
+
+        let (distribution_pda, bump) =
+            find_merkle_distribution_pda(&mint.pubkey(), &authority.pubkey(), &seeds.pubkey());
+        let vault = ctx.create_token_2022_account(&distribution_pda, &mint.pubkey());
+        let authority_token_account =
+            ctx.create_token_2022_account_with_balance(&authority.pubkey(), &mint.pubkey(), amount);
+
+        let current_ts = ctx.get_current_timestamp();
+
+        Self {
+            authority,
+            seeds,
+            mint,
+            vault,
+            authority_token_account,
+            distribution_pda,
+            bump,
+            amount,
+            total_amount: amount,
+            merkle_root: [1u8; 32],
+            clawback_ts: current_ts + DEFAULT_CLAWBACK_OFFSET,
+            token_program: TOKEN_2022_PROGRAM_ID,
+        }
     }
 
     pub fn build_instruction(&self, ctx: &TestContext) -> TestInstruction {

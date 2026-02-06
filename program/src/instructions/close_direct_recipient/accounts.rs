@@ -26,7 +26,7 @@ impl<'a> TryFrom<&'a [AccountView]> for CloseDirectRecipientAccounts<'a> {
         };
 
         // 1. Validate signers
-        verify_signer(recipient, true)?;
+        verify_signer(recipient, false)?;
 
         // 2. Validate writable
         verify_writable(payer, true)?;
