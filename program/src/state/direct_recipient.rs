@@ -11,34 +11,34 @@ use pinocchio::{
 use crate::errors::RewardsProgramError;
 use crate::traits::{
     AccountParse, AccountSerialize, AccountSize, AccountValidation, ClaimTracker, Discriminator, PdaAccount, PdaSeeds,
-    RewardsAccountDiscriminators, Versioned, VestingParams,
+    RewardsAccountDiscriminators, Versioned, VestingParams, ACCOUNT_HEADER_SIZE,
 };
-use crate::utils::{calculate_linear_unlock, VestingScheduleType};
-use crate::{assert_no_padding, require_account_len, validate_discriminator};
+use crate::utils::VestingSchedule;
+use crate::{require_account_len, validate_discriminator};
 
 /// DirectRecipient account state
 ///
 /// Represents a recipient's allocation within a direct distribution.
-/// Each recipient has their own vesting schedule (type, start, end).
+/// Each recipient has their own vesting schedule.
+///
+/// Fixed fields first, variable-length schedule last. Account size
+/// depends on the schedule variant (116–140 bytes total).
 ///
 /// # PDA Seeds
 /// `[b"direct_recipient", distribution.as_ref(), recipient.as_ref()]`
 #[derive(Clone, Debug, PartialEq, CodamaAccount)]
-#[repr(C)]
 pub struct DirectRecipient {
     pub bump: u8,
-    pub schedule_type: u8,
-    _padding: [u8; 6],
     pub distribution: Address,
     pub recipient: Address,
     pub payer: Address,
     pub total_amount: u64,
     pub claimed_amount: u64,
-    pub start_ts: i64,
-    pub end_ts: i64,
+    pub schedule: VestingSchedule,
 }
 
-assert_no_padding!(DirectRecipient, 1 + 1 + 6 + 32 + 32 + 32 + 8 + 8 + 8 + 8);
+/// Fixed fields size: bump(1) + distribution(32) + recipient(32) + payer(32) + total_amount(8) + claimed_amount(8)
+const FIXED_DATA_LEN: usize = 1 + 32 + 32 + 32 + 8 + 8;
 
 impl Discriminator for DirectRecipient {
     const DISCRIMINATOR: u8 = RewardsAccountDiscriminators::DirectRecipient as u8;
@@ -49,7 +49,8 @@ impl Versioned for DirectRecipient {
 }
 
 impl AccountSize for DirectRecipient {
-    const DATA_LEN: usize = 1 + 1 + 6 + 32 + 32 + 32 + 8 + 8 + 8 + 8; // 136
+    /// Minimum DATA_LEN: fixed fields (113) + smallest schedule variant (Immediate = 1 byte) = 114
+    const DATA_LEN: usize = FIXED_DATA_LEN + 1;
 }
 
 impl AccountParse for DirectRecipient {
@@ -61,52 +62,33 @@ impl AccountParse for DirectRecipient {
         let data = &data[2..];
 
         let bump = data[0];
-        let schedule_type = data[1];
-        // Skip padding bytes [2..8]
         let distribution =
-            Address::new_from_array(data[8..40].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
+            Address::new_from_array(data[1..33].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
         let recipient =
-            Address::new_from_array(data[40..72].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
+            Address::new_from_array(data[33..65].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
         let payer =
-            Address::new_from_array(data[72..104].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
+            Address::new_from_array(data[65..97].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
         let total_amount =
-            u64::from_le_bytes(data[104..112].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
+            u64::from_le_bytes(data[97..105].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
         let claimed_amount =
-            u64::from_le_bytes(data[112..120].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
-        let start_ts =
-            i64::from_le_bytes(data[120..128].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
-        let end_ts =
-            i64::from_le_bytes(data[128..136].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
+            u64::from_le_bytes(data[105..113].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
+        let (schedule, _) = VestingSchedule::from_bytes(&data[113..])?;
 
-        Ok(Self {
-            bump,
-            schedule_type,
-            _padding: [0u8; 6],
-            distribution,
-            recipient,
-            payer,
-            total_amount,
-            claimed_amount,
-            start_ts,
-            end_ts,
-        })
+        Ok(Self { bump, distribution, recipient, payer, total_amount, claimed_amount, schedule })
     }
 }
 
 impl AccountSerialize for DirectRecipient {
     #[inline(always)]
     fn to_bytes_inner(&self) -> Vec<u8> {
-        let mut data = Vec::with_capacity(Self::DATA_LEN);
+        let mut data = Vec::with_capacity(FIXED_DATA_LEN + self.schedule.byte_len());
         data.push(self.bump);
-        data.push(self.schedule_type);
-        data.extend_from_slice(&[0u8; 6]); // padding
         data.extend_from_slice(self.distribution.as_ref());
         data.extend_from_slice(self.recipient.as_ref());
         data.extend_from_slice(self.payer.as_ref());
         data.extend_from_slice(&self.total_amount.to_le_bytes());
         data.extend_from_slice(&self.claimed_amount.to_le_bytes());
-        data.extend_from_slice(&self.start_ts.to_le_bytes());
-        data.extend_from_slice(&self.end_ts.to_le_bytes());
+        data.extend_from_slice(&self.schedule.to_bytes());
         data
     }
 }
@@ -158,23 +140,16 @@ impl VestingParams for DirectRecipient {
     }
 
     #[inline(always)]
-    fn start_ts(&self) -> i64 {
-        self.start_ts
-    }
-
-    #[inline(always)]
-    fn end_ts(&self) -> i64 {
-        self.end_ts
-    }
-
-    #[inline(always)]
-    fn schedule_type(&self) -> VestingScheduleType {
-        VestingScheduleType::from_u8(self.schedule_type).unwrap_or(VestingScheduleType::Immediate)
+    fn vesting_schedule(&self) -> VestingSchedule {
+        self.schedule
     }
 }
 
 impl DirectRecipient {
-    #[allow(clippy::too_many_arguments)]
+    pub fn calculate_account_size(schedule: &VestingSchedule) -> usize {
+        ACCOUNT_HEADER_SIZE + FIXED_DATA_LEN + schedule.byte_len()
+    }
+
     #[inline(always)]
     pub fn new(
         bump: u8,
@@ -182,22 +157,9 @@ impl DirectRecipient {
         recipient: Address,
         payer: Address,
         total_amount: u64,
-        schedule_type: VestingScheduleType,
-        start_ts: i64,
-        end_ts: i64,
+        schedule: VestingSchedule,
     ) -> Self {
-        Self {
-            bump,
-            schedule_type: schedule_type as u8,
-            _padding: [0u8; 6],
-            distribution,
-            recipient,
-            payer,
-            total_amount,
-            claimed_amount: 0,
-            start_ts,
-            end_ts,
-        }
+        Self { bump, distribution, recipient, payer, total_amount, claimed_amount: 0, schedule }
     }
 
     #[inline(always)]
@@ -226,20 +188,6 @@ impl DirectRecipient {
 
     pub fn remaining_amount(&self) -> Result<u64, RewardsProgramError> {
         self.total_amount.checked_sub(self.claimed_amount).ok_or(RewardsProgramError::MathOverflow)
-    }
-
-    pub fn schedule_type(&self) -> Option<VestingScheduleType> {
-        VestingScheduleType::from_u8(self.schedule_type)
-    }
-
-    pub fn calculate_unlocked_amount(&self, current_ts: i64) -> Result<u64, ProgramError> {
-        match self.schedule_type() {
-            Some(VestingScheduleType::Immediate) => Ok(self.total_amount),
-            Some(VestingScheduleType::Linear) => {
-                calculate_linear_unlock(self.total_amount, self.start_ts, self.end_ts, current_ts)
-            }
-            None => Ok(0),
-        }
     }
 
     #[inline(always)]
@@ -271,9 +219,7 @@ mod tests {
             Address::new_from_array([2u8; 32]),
             Address::new_from_array([3u8; 32]),
             1000,
-            VestingScheduleType::Linear,
-            100,
-            200,
+            VestingSchedule::Linear { start_ts: 100, end_ts: 200 },
         )
     }
 
@@ -286,9 +232,21 @@ mod tests {
         assert_eq!(recipient.payer, Address::new_from_array([3u8; 32]));
         assert_eq!(recipient.total_amount, 1000);
         assert_eq!(recipient.claimed_amount, 0);
-        assert_eq!(recipient.schedule_type, VestingScheduleType::Linear as u8);
-        assert_eq!(recipient.start_ts, 100);
-        assert_eq!(recipient.end_ts, 200);
+        assert_eq!(recipient.schedule, VestingSchedule::Linear { start_ts: 100, end_ts: 200 });
+    }
+
+    #[test]
+    fn test_direct_recipient_new_cliff_linear() {
+        let schedule = VestingSchedule::CliffLinear { start_ts: 0, cliff_ts: 100, end_ts: 400 };
+        let recipient = DirectRecipient::new(
+            255,
+            Address::new_from_array([1u8; 32]),
+            Address::new_from_array([2u8; 32]),
+            Address::new_from_array([3u8; 32]),
+            1000,
+            schedule,
+        );
+        assert_eq!(recipient.schedule, schedule);
     }
 
     #[test]
@@ -296,13 +254,12 @@ mod tests {
         let recipient = create_test_recipient();
         let bytes = recipient.to_bytes_inner();
 
-        assert_eq!(bytes.len(), DirectRecipient::DATA_LEN);
+        // Linear schedule = 17 bytes, so inner = 113 + 17 = 130
+        assert_eq!(bytes.len(), FIXED_DATA_LEN + recipient.schedule.byte_len());
         assert_eq!(bytes[0], 255); // bump
-        assert_eq!(bytes[1], VestingScheduleType::Linear as u8); // schedule_type
-        assert_eq!(&bytes[2..8], &[0u8; 6]); // padding
-        assert_eq!(&bytes[8..40], &[1u8; 32]); // distribution
-        assert_eq!(&bytes[40..72], &[2u8; 32]); // recipient
-        assert_eq!(&bytes[72..104], &[3u8; 32]); // payer
+        assert_eq!(&bytes[1..33], &[1u8; 32]); // distribution
+        assert_eq!(&bytes[33..65], &[2u8; 32]); // recipient
+        assert_eq!(&bytes[65..97], &[3u8; 32]); // payer
     }
 
     #[test]
@@ -310,7 +267,7 @@ mod tests {
         let recipient = create_test_recipient();
         let bytes = recipient.to_bytes();
 
-        assert_eq!(bytes.len(), DirectRecipient::LEN);
+        assert_eq!(bytes.len(), DirectRecipient::calculate_account_size(&recipient.schedule));
         assert_eq!(bytes[0], DirectRecipient::DISCRIMINATOR);
         assert_eq!(bytes[1], DirectRecipient::VERSION);
         assert_eq!(bytes[2], 255); // bump
@@ -351,22 +308,22 @@ mod tests {
     }
 
     #[test]
-    fn test_calculate_unlocked_amount() {
+    fn test_calculate_unlocked() {
         let recipient = create_test_recipient();
         // start=100, end=200, at ts=150 (midpoint), should unlock 50%
-        assert_eq!(recipient.calculate_unlocked_amount(150).unwrap(), 500);
+        assert_eq!(VestingParams::calculate_unlocked(&recipient, 150).unwrap(), 500);
     }
 
     #[test]
     fn test_calculate_unlocked_before_start() {
         let recipient = create_test_recipient();
-        assert_eq!(recipient.calculate_unlocked_amount(50).unwrap(), 0);
+        assert_eq!(VestingParams::calculate_unlocked(&recipient, 50).unwrap(), 0);
     }
 
     #[test]
     fn test_calculate_unlocked_after_end() {
         let recipient = create_test_recipient();
-        assert_eq!(recipient.calculate_unlocked_amount(250).unwrap(), 1000);
+        assert_eq!(VestingParams::calculate_unlocked(&recipient, 250).unwrap(), 1000);
     }
 
     #[test]
@@ -383,29 +340,25 @@ mod tests {
         assert_eq!(deserialized.payer, recipient.payer);
         assert_eq!(deserialized.total_amount, recipient.total_amount);
         assert_eq!(deserialized.claimed_amount, recipient.claimed_amount);
-        assert_eq!(deserialized.schedule_type, recipient.schedule_type);
-        assert_eq!(deserialized.start_ts, recipient.start_ts);
-        assert_eq!(deserialized.end_ts, recipient.end_ts);
+        assert_eq!(deserialized.schedule, recipient.schedule);
     }
 
     #[test]
-    fn test_schedule_type_valid() {
-        let recipient = create_test_recipient();
-        assert_eq!(recipient.schedule_type(), Some(VestingScheduleType::Linear));
-    }
+    fn test_roundtrip_serialization_cliff_linear() {
+        let schedule = VestingSchedule::CliffLinear { start_ts: 0, cliff_ts: 100, end_ts: 400 };
+        let recipient = DirectRecipient::new(
+            200,
+            Address::new_from_array([1u8; 32]),
+            Address::new_from_array([2u8; 32]),
+            Address::new_from_array([3u8; 32]),
+            5000,
+            schedule,
+        );
 
-    #[test]
-    fn test_schedule_type_invalid() {
-        let mut recipient = create_test_recipient();
-        recipient.schedule_type = 255;
-        assert_eq!(recipient.schedule_type(), None);
-    }
+        let bytes = recipient.to_bytes();
+        let deserialized = DirectRecipient::parse_from_bytes(&bytes).unwrap();
 
-    #[test]
-    fn test_calculate_unlocked_amount_invalid_schedule() {
-        let mut recipient = create_test_recipient();
-        recipient.schedule_type = 255;
-        assert_eq!(recipient.calculate_unlocked_amount(150).unwrap(), 0);
+        assert_eq!(deserialized.schedule, schedule);
     }
 
     #[test]
@@ -470,13 +423,32 @@ mod tests {
     fn test_vesting_params_trait() {
         let recipient = create_test_recipient();
         assert_eq!(VestingParams::total_amount(&recipient), 1000);
-        assert_eq!(VestingParams::start_ts(&recipient), 100);
-        assert_eq!(VestingParams::end_ts(&recipient), 200);
+        assert_eq!(VestingParams::vesting_schedule(&recipient), VestingSchedule::Linear { start_ts: 100, end_ts: 200 });
     }
 
     #[test]
     fn test_vesting_params_calculate_unlocked() {
         let recipient = create_test_recipient();
         assert_eq!(VestingParams::calculate_unlocked(&recipient, 150).unwrap(), 500);
+    }
+
+    #[test]
+    fn test_cliff_linear_unlocked_amount() {
+        let recipient = DirectRecipient::new(
+            255,
+            Address::new_from_array([1u8; 32]),
+            Address::new_from_array([2u8; 32]),
+            Address::new_from_array([3u8; 32]),
+            1000,
+            VestingSchedule::CliffLinear { start_ts: 0, cliff_ts: 100, end_ts: 400 },
+        );
+        // Before cliff
+        assert_eq!(VestingParams::calculate_unlocked(&recipient, 50).unwrap(), 0);
+        // At cliff: 1000 * 100/400 = 250
+        assert_eq!(VestingParams::calculate_unlocked(&recipient, 100).unwrap(), 250);
+        // After cliff, midpoint: 1000 * 200/400 = 500
+        assert_eq!(VestingParams::calculate_unlocked(&recipient, 200).unwrap(), 500);
+        // At end
+        assert_eq!(VestingParams::calculate_unlocked(&recipient, 400).unwrap(), 1000);
     }
 }

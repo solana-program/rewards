@@ -9,9 +9,6 @@ use spl_token_interface::ID as TOKEN_PROGRAM_ID;
 use crate::utils::{
     find_event_authority_pda, find_merkle_distribution_pda, InstructionTestFixture, TestContext, TestInstruction,
 };
-
-pub const IMMEDIATE_SCHEDULE: u8 = 0;
-pub const LINEAR_SCHEDULE: u8 = 1;
 pub const DEFAULT_MERKLE_DISTRIBUTION_AMOUNT: u64 = 10_000_000;
 pub const DEFAULT_CLAWBACK_OFFSET: i64 = 86400 * 365; // 1 year
 

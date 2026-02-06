@@ -1,6 +1,8 @@
 use solana_sdk::signature::Signer;
 
-use crate::fixtures::{ClaimDirectFixture, ClaimDirectSetup, IMMEDIATE_SCHEDULE};
+use rewards_program_client::types::VestingSchedule;
+
+use crate::fixtures::{ClaimDirectFixture, ClaimDirectSetup};
 use crate::utils::{
     assert_direct_recipient, assert_rewards_error, expected_linear_unlock, test_empty_data, test_missing_signer,
     test_not_writable, test_wrong_current_program, RewardsError, TestContext,
@@ -149,8 +151,7 @@ fn test_claim_direct_nothing_before_start() {
     let current_ts = ctx.get_current_timestamp();
 
     let setup = ClaimDirectSetup::builder(&mut ctx)
-        .start_ts(current_ts + 1000)
-        .end_ts(current_ts + 2000)
+        .schedule(VestingSchedule::Linear { start_ts: current_ts + 1000, end_ts: current_ts + 2000 })
         .warp_to_end(false)
         .build();
 
@@ -193,7 +194,7 @@ fn test_claim_direct_unauthorized() {
 #[test]
 fn test_claim_direct_immediate_vesting() {
     let mut ctx = TestContext::new();
-    let setup = ClaimDirectSetup::builder(&mut ctx).schedule_type(IMMEDIATE_SCHEDULE).warp_to_end(false).build();
+    let setup = ClaimDirectSetup::builder(&mut ctx).schedule(VestingSchedule::Immediate).warp_to_end(false).build();
 
     let test_ix = setup.build_instruction(&ctx);
     test_ix.send_expect_success(&mut ctx);

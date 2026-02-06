@@ -1,4 +1,5 @@
 use rewards_program_client::instructions::AddDirectRecipientBuilder;
+use rewards_program_client::types::VestingSchedule;
 use solana_sdk::{instruction::InstructionError, signature::Signer};
 
 use crate::fixtures::{
@@ -9,8 +10,6 @@ use crate::utils::{
     find_event_authority_pda, test_empty_data, test_missing_signer, test_not_writable, test_wrong_current_program,
     RewardsError, TestContext, TestInstruction,
 };
-
-use crate::fixtures::create_direct_distribution::LINEAR_SCHEDULE;
 
 #[test]
 fn test_close_direct_recipient_missing_recipient_signer() {
@@ -93,9 +92,7 @@ fn test_close_direct_recipient_claim_not_fully_vested() {
         .event_authority(event_authority)
         .bump(recipient_bump)
         .amount(amount)
-        .schedule_type(LINEAR_SCHEDULE)
-        .start_ts(current_ts)
-        .end_ts(current_ts + 86400 * 365);
+        .schedule(VestingSchedule::Linear { start_ts: current_ts, end_ts: current_ts + 86400 * 365 });
 
     let add_ix = TestInstruction {
         instruction: add_builder.instruction(),

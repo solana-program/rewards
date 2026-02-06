@@ -6,9 +6,9 @@ use solana_sdk::{
 use spl_token_2022::ID as TOKEN_2022_PROGRAM_ID;
 use spl_token_interface::ID as TOKEN_PROGRAM_ID;
 
-use crate::fixtures::{
-    AddDirectRecipientSetup, CreateDirectDistributionSetup, DEFAULT_RECIPIENT_AMOUNT, LINEAR_SCHEDULE,
-};
+use rewards_program_client::types::VestingSchedule;
+
+use crate::fixtures::{AddDirectRecipientSetup, CreateDirectDistributionSetup, DEFAULT_RECIPIENT_AMOUNT};
 use crate::utils::{
     find_direct_recipient_pda, find_event_authority_pda, InstructionTestFixture, TestContext, TestInstruction,
 };
@@ -49,7 +49,7 @@ impl ClaimDirectSetup {
         instruction.send_expect_success(ctx);
 
         if warp_to_end {
-            ctx.warp_to_timestamp(recipient_setup.end_ts);
+            ctx.warp_to_timestamp(recipient_setup.end_ts());
         }
 
         let recipient_token_account = if recipient_setup.token_program == TOKEN_2022_PROGRAM_ID {
@@ -68,8 +68,8 @@ impl ClaimDirectSetup {
             recipient_token_account,
             token_program: recipient_setup.token_program,
             amount: recipient_setup.amount,
-            start_ts: recipient_setup.start_ts,
-            end_ts: recipient_setup.end_ts,
+            start_ts: recipient_setup.start_ts(),
+            end_ts: recipient_setup.end_ts(),
         }
     }
 
@@ -159,9 +159,7 @@ pub struct ClaimDirectSetupBuilder<'a> {
     ctx: &'a mut TestContext,
     token_program: Pubkey,
     amount: u64,
-    schedule_type: u8,
-    start_ts: Option<i64>,
-    end_ts: Option<i64>,
+    schedule: Option<VestingSchedule>,
     warp_to_end: bool,
 }
 
@@ -171,9 +169,7 @@ impl<'a> ClaimDirectSetupBuilder<'a> {
             ctx,
             token_program: TOKEN_PROGRAM_ID,
             amount: DEFAULT_RECIPIENT_AMOUNT,
-            schedule_type: LINEAR_SCHEDULE,
-            start_ts: None,
-            end_ts: None,
+            schedule: None,
             warp_to_end: true,
         }
     }
@@ -193,23 +189,13 @@ impl<'a> ClaimDirectSetupBuilder<'a> {
         self
     }
 
-    pub fn start_ts(mut self, ts: i64) -> Self {
-        self.start_ts = Some(ts);
-        self
-    }
-
-    pub fn end_ts(mut self, ts: i64) -> Self {
-        self.end_ts = Some(ts);
+    pub fn schedule(mut self, schedule: VestingSchedule) -> Self {
+        self.schedule = Some(schedule);
         self
     }
 
     pub fn warp_to_end(mut self, warp: bool) -> Self {
         self.warp_to_end = warp;
-        self
-    }
-
-    pub fn schedule_type(mut self, schedule_type: u8) -> Self {
-        self.schedule_type = schedule_type;
         self
     }
 
@@ -223,8 +209,16 @@ impl<'a> ClaimDirectSetupBuilder<'a> {
         create_ix.send_expect_success(self.ctx);
 
         let current_ts = self.ctx.get_current_timestamp();
-        let start_ts = self.start_ts.unwrap_or(current_ts);
-        let end_ts = self.end_ts.unwrap_or(current_ts + 86400 * 365);
+        let schedule = self
+            .schedule
+            .unwrap_or(VestingSchedule::Linear { start_ts: current_ts, end_ts: current_ts + 86400 * 365 });
+
+        let (start_ts, end_ts) = match &schedule {
+            VestingSchedule::Linear { start_ts, end_ts } => (*start_ts, *end_ts),
+            VestingSchedule::CliffLinear { start_ts, end_ts, .. } => (*start_ts, *end_ts),
+            VestingSchedule::Cliff { cliff_ts } => (0, *cliff_ts),
+            VestingSchedule::Immediate => (0, 0),
+        };
 
         let recipient = self.ctx.create_funded_keypair();
         let (recipient_pda, recipient_bump) =
@@ -237,9 +231,7 @@ impl<'a> ClaimDirectSetupBuilder<'a> {
             recipient_pda,
             recipient_bump,
             amount: self.amount,
-            schedule_type: self.schedule_type,
-            start_ts,
-            end_ts,
+            schedule,
             token_program: self.token_program,
             mint: distribution_setup.mint.pubkey(),
             vault: distribution_setup.vault,

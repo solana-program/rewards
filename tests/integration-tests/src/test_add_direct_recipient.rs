@@ -1,3 +1,4 @@
+use rewards_program_client::types::VestingSchedule;
 use solana_sdk::signature::Signer;
 
 use crate::fixtures::{
@@ -111,22 +112,13 @@ fn test_add_direct_recipient_zero_amount() {
 }
 
 #[test]
-fn test_add_direct_recipient_invalid_schedule_type() {
-    let mut ctx = TestContext::new();
-    let setup = AddDirectRecipientSetup::builder(&mut ctx).schedule_type(255).build();
-
-    let instruction = setup.build_instruction(&ctx);
-    let error = instruction.send_expect_error(&mut ctx);
-
-    assert_rewards_error(error, RewardsError::InvalidScheduleType);
-}
-
-#[test]
 fn test_add_direct_recipient_invalid_time_window() {
     let mut ctx = TestContext::new();
     let current_ts = ctx.get_current_timestamp();
 
-    let setup = AddDirectRecipientSetup::builder(&mut ctx).start_ts(current_ts + 100).end_ts(current_ts + 50).build();
+    let setup = AddDirectRecipientSetup::builder(&mut ctx)
+        .schedule(VestingSchedule::Linear { start_ts: current_ts + 100, end_ts: current_ts + 50 })
+        .build();
 
     let instruction = setup.build_instruction(&ctx);
     let error = instruction.send_expect_error(&mut ctx);
@@ -149,6 +141,8 @@ fn test_add_direct_recipient_multiple() {
     let (recipient1_pda, recipient1_bump) =
         find_direct_recipient_pda(&distribution_setup.distribution_pda, &recipient1.pubkey());
 
+    let schedule = VestingSchedule::Linear { start_ts, end_ts };
+
     let setup1 = AddDirectRecipientSetup {
         authority: distribution_setup.authority.insecure_clone(),
         distribution_pda: distribution_setup.distribution_pda,
@@ -156,9 +150,7 @@ fn test_add_direct_recipient_multiple() {
         recipient_pda: recipient1_pda,
         recipient_bump: recipient1_bump,
         amount: DEFAULT_RECIPIENT_AMOUNT,
-        schedule_type: 0,
-        start_ts,
-        end_ts,
+        schedule: schedule.clone(),
         token_program: distribution_setup.token_program,
         mint: distribution_setup.mint.pubkey(),
         vault: distribution_setup.vault,
@@ -188,9 +180,7 @@ fn test_add_direct_recipient_multiple() {
         recipient_pda: recipient2_pda,
         recipient_bump: recipient2_bump,
         amount: DEFAULT_RECIPIENT_AMOUNT * 2,
-        schedule_type: 0,
-        start_ts,
-        end_ts,
+        schedule: schedule.clone(),
         token_program: distribution_setup.token_program,
         mint: distribution_setup.mint.pubkey(),
         vault: distribution_setup.vault,
@@ -236,6 +226,8 @@ fn test_add_direct_recipient_multiple_exceeds_vault() {
     let (recipient1_pda, recipient1_bump) =
         find_direct_recipient_pda(&distribution_setup.distribution_pda, &recipient1.pubkey());
 
+    let schedule = VestingSchedule::Linear { start_ts, end_ts };
+
     let setup1 = AddDirectRecipientSetup {
         authority: distribution_setup.authority.insecure_clone(),
         distribution_pda: distribution_setup.distribution_pda,
@@ -243,9 +235,7 @@ fn test_add_direct_recipient_multiple_exceeds_vault() {
         recipient_pda: recipient1_pda,
         recipient_bump: recipient1_bump,
         amount: 500_000,
-        schedule_type: 0,
-        start_ts,
-        end_ts,
+        schedule: schedule.clone(),
         token_program: distribution_setup.token_program,
         mint: distribution_setup.mint.pubkey(),
         vault: distribution_setup.vault,
@@ -266,9 +256,7 @@ fn test_add_direct_recipient_multiple_exceeds_vault() {
         recipient_pda: recipient2_pda,
         recipient_bump: recipient2_bump,
         amount: 600_000,
-        schedule_type: 0,
-        start_ts,
-        end_ts,
+        schedule: schedule.clone(),
         token_program: distribution_setup.token_program,
         mint: distribution_setup.mint.pubkey(),
         vault: distribution_setup.vault,

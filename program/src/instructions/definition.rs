@@ -1,6 +1,8 @@
 use alloc::vec::Vec;
 use codama::CodamaInstructions;
 
+use crate::utils::VestingSchedule;
+
 /// Instructions for the Rewards Program.
 #[repr(C, u8)]
 #[derive(Clone, Debug, PartialEq, CodamaInstructions)]
@@ -44,12 +46,8 @@ pub enum RewardsProgramInstruction {
         bump: u8,
         /// Amount allocated to the recipient
         amount: u64,
-        /// Schedule type (0 = linear)
-        schedule_type: u8,
-        /// Vesting start timestamp
-        start_ts: i64,
-        /// Vesting end timestamp
-        end_ts: i64,
+        /// Vesting schedule
+        schedule: VestingSchedule,
     } = 1,
 
     /// Claim tokens from a direct distribution.
@@ -130,14 +128,10 @@ pub enum RewardsProgramInstruction {
         claim_bump: u8,
         /// Total amount allocated to claimant (from merkle leaf)
         total_amount: u64,
-        /// Vesting schedule type (from merkle leaf): 0 = Immediate, 1 = Linear
-        schedule_type: u8,
-        /// Vesting start timestamp (from merkle leaf)
-        start_ts: i64,
-        /// Vesting end timestamp (from merkle leaf)
-        end_ts: i64,
         /// Amount to claim (0 = claim all available)
         amount: u64,
+        /// Vesting schedule (from merkle leaf)
+        schedule: VestingSchedule,
         /// Merkle proof
         proof: Vec<[u8; 32]>,
     } = 6,

@@ -2,16 +2,17 @@ use alloc::vec::Vec;
 use codama::CodamaType;
 use pinocchio::Address;
 
-use crate::traits::{EventDiscriminator, EventDiscriminators, EventSerialize};
+use crate::{
+    traits::{EventDiscriminator, EventDiscriminators, EventSerialize},
+    utils::VestingSchedule,
+};
 
 #[derive(CodamaType)]
 pub struct RecipientAddedEvent {
     pub distribution: Address,
     pub recipient: Address,
     pub amount: u64,
-    pub schedule_type: u8,
-    pub start_ts: i64,
-    pub end_ts: i64,
+    pub schedule: VestingSchedule,
 }
 
 impl EventDiscriminator for RecipientAddedEvent {
@@ -21,30 +22,23 @@ impl EventDiscriminator for RecipientAddedEvent {
 impl EventSerialize for RecipientAddedEvent {
     #[inline(always)]
     fn to_bytes_inner(&self) -> Vec<u8> {
-        let mut data = Vec::with_capacity(Self::DATA_LEN);
+        let schedule_bytes = self.schedule.to_bytes();
+        let mut data = Vec::with_capacity(Self::BASE_DATA_LEN + schedule_bytes.len());
         data.extend_from_slice(self.distribution.as_ref());
         data.extend_from_slice(self.recipient.as_ref());
         data.extend_from_slice(&self.amount.to_le_bytes());
-        data.push(self.schedule_type);
-        data.extend_from_slice(&self.start_ts.to_le_bytes());
-        data.extend_from_slice(&self.end_ts.to_le_bytes());
+        data.extend_from_slice(&schedule_bytes);
         data
     }
 }
 
 impl RecipientAddedEvent {
-    pub const DATA_LEN: usize = 32 + 32 + 8 + 1 + 8 + 8; // distribution + recipient + amount + schedule_type + start_ts + end_ts
+    /// distribution(32) + recipient(32) + amount(8)
+    pub const BASE_DATA_LEN: usize = 32 + 32 + 8;
 
     #[inline(always)]
-    pub fn new(
-        distribution: Address,
-        recipient: Address,
-        amount: u64,
-        schedule_type: u8,
-        start_ts: i64,
-        end_ts: i64,
-    ) -> Self {
-        Self { distribution, recipient, amount, schedule_type, start_ts, end_ts }
+    pub fn new(distribution: Address, recipient: Address, amount: u64, schedule: VestingSchedule) -> Self {
+        Self { distribution, recipient, amount, schedule }
     }
 }
 
@@ -58,39 +52,65 @@ mod tests {
     fn test_recipient_added_event_new() {
         let distribution = Address::new_from_array([1u8; 32]);
         let recipient = Address::new_from_array([2u8; 32]);
+        let schedule = VestingSchedule::Linear { start_ts: 100, end_ts: 200 };
 
-        let event = RecipientAddedEvent::new(distribution, recipient, 1000, 0, 100, 200);
+        let event = RecipientAddedEvent::new(distribution, recipient, 1000, schedule);
 
         assert_eq!(event.distribution, distribution);
         assert_eq!(event.recipient, recipient);
         assert_eq!(event.amount, 1000);
-        assert_eq!(event.schedule_type, 0);
-        assert_eq!(event.start_ts, 100);
-        assert_eq!(event.end_ts, 200);
+        assert_eq!(event.schedule, schedule);
     }
 
     #[test]
-    fn test_recipient_added_event_to_bytes_inner() {
+    fn test_recipient_added_event_to_bytes_inner_immediate() {
         let distribution = Address::new_from_array([1u8; 32]);
         let recipient = Address::new_from_array([2u8; 32]);
-        let event = RecipientAddedEvent::new(distribution, recipient, 5000, 0, 100, 200);
+        let event = RecipientAddedEvent::new(distribution, recipient, 5000, VestingSchedule::Immediate {});
 
         let bytes = event.to_bytes_inner();
-        assert_eq!(bytes.len(), RecipientAddedEvent::DATA_LEN);
+        assert_eq!(bytes.len(), RecipientAddedEvent::BASE_DATA_LEN + 1); // schedule = 1 byte
         assert_eq!(&bytes[..32], distribution.as_ref());
         assert_eq!(&bytes[32..64], recipient.as_ref());
         assert_eq!(&bytes[64..72], &5000u64.to_le_bytes());
+        assert_eq!(bytes[72], 0); // Immediate discriminant
+    }
+
+    #[test]
+    fn test_recipient_added_event_to_bytes_inner_linear() {
+        let distribution = Address::new_from_array([1u8; 32]);
+        let recipient = Address::new_from_array([2u8; 32]);
+        let schedule = VestingSchedule::Linear { start_ts: 100, end_ts: 200 };
+        let event = RecipientAddedEvent::new(distribution, recipient, 5000, schedule);
+
+        let bytes = event.to_bytes_inner();
+        assert_eq!(bytes.len(), RecipientAddedEvent::BASE_DATA_LEN + 17); // schedule = 17 bytes
     }
 
     #[test]
     fn test_recipient_added_event_to_bytes() {
         let distribution = Address::new_from_array([1u8; 32]);
         let recipient = Address::new_from_array([2u8; 32]);
-        let event = RecipientAddedEvent::new(distribution, recipient, 1000, 0, 100, 200);
+        let schedule = VestingSchedule::Linear { start_ts: 100, end_ts: 200 };
+        let event = RecipientAddedEvent::new(distribution, recipient, 1000, schedule);
 
         let bytes = event.to_bytes();
-        assert_eq!(bytes.len(), EVENT_DISCRIMINATOR_LEN + RecipientAddedEvent::DATA_LEN);
+        let expected_len = EVENT_DISCRIMINATOR_LEN + RecipientAddedEvent::BASE_DATA_LEN + 17;
+        assert_eq!(bytes.len(), expected_len);
         assert_eq!(&bytes[..8], EVENT_IX_TAG_LE);
         assert_eq!(bytes[8], EventDiscriminators::RecipientAdded as u8);
+    }
+
+    #[test]
+    fn test_recipient_added_event_with_cliff_linear() {
+        let distribution = Address::new_from_array([1u8; 32]);
+        let recipient = Address::new_from_array([2u8; 32]);
+        let schedule = VestingSchedule::CliffLinear { start_ts: 0, cliff_ts: 100, end_ts: 400 };
+        let event = RecipientAddedEvent::new(distribution, recipient, 1000, schedule);
+
+        assert_eq!(event.schedule, schedule);
+
+        let bytes = event.to_bytes_inner();
+        assert_eq!(bytes.len(), RecipientAddedEvent::BASE_DATA_LEN + 25); // schedule = 25 bytes
     }
 }

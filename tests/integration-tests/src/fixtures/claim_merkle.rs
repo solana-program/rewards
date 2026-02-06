@@ -1,4 +1,4 @@
-use rewards_program_client::instructions::ClaimMerkleBuilder;
+use rewards_program_client::{instructions::ClaimMerkleBuilder, types::VestingSchedule};
 use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signer},
@@ -6,7 +6,7 @@ use solana_sdk::{
 use spl_token_2022::ID as TOKEN_2022_PROGRAM_ID;
 use spl_token_interface::ID as TOKEN_PROGRAM_ID;
 
-use crate::fixtures::{CreateMerkleDistributionSetup, IMMEDIATE_SCHEDULE, LINEAR_SCHEDULE};
+use crate::fixtures::CreateMerkleDistributionSetup;
 use crate::utils::{
     find_event_authority_pda, find_merkle_claim_pda, InstructionTestFixture, MerkleLeaf, MerkleTree, TestContext,
     TestInstruction,
@@ -24,9 +24,7 @@ pub struct ClaimMerkleSetup {
     pub claimant_token_account: Pubkey,
     pub token_program: Pubkey,
     pub total_amount: u64,
-    pub schedule_type: u8,
-    pub start_ts: i64,
-    pub end_ts: i64,
+    pub schedule: VestingSchedule,
     pub proof: Vec<[u8; 32]>,
     pub merkle_tree: MerkleTree,
     pub authority: Keypair,
@@ -43,6 +41,24 @@ impl ClaimMerkleSetup {
 
     pub fn new_token_2022(ctx: &mut TestContext) -> Self {
         Self::builder(ctx).token_2022().build()
+    }
+
+    pub fn start_ts(&self) -> i64 {
+        match &self.schedule {
+            VestingSchedule::Immediate => 0,
+            VestingSchedule::Linear { start_ts, .. } => *start_ts,
+            VestingSchedule::Cliff { .. } => 0,
+            VestingSchedule::CliffLinear { start_ts, .. } => *start_ts,
+        }
+    }
+
+    pub fn end_ts(&self) -> i64 {
+        match &self.schedule {
+            VestingSchedule::Immediate => 0,
+            VestingSchedule::Linear { end_ts, .. } => *end_ts,
+            VestingSchedule::Cliff { cliff_ts } => *cliff_ts,
+            VestingSchedule::CliffLinear { end_ts, .. } => *end_ts,
+        }
     }
 
     pub fn build_instruction(&self, ctx: &TestContext) -> TestInstruction {
@@ -65,9 +81,7 @@ impl ClaimMerkleSetup {
             .event_authority(event_authority)
             .claim_bump(self.claim_bump)
             .total_amount(self.total_amount)
-            .schedule_type(self.schedule_type)
-            .start_ts(self.start_ts)
-            .end_ts(self.end_ts)
+            .schedule(self.schedule.clone())
             .amount(claim_amount)
             .proof(self.proof.clone());
 
@@ -101,9 +115,7 @@ impl ClaimMerkleSetup {
             .event_authority(event_authority)
             .claim_bump(wrong_claim_bump)
             .total_amount(self.total_amount)
-            .schedule_type(self.schedule_type)
-            .start_ts(self.start_ts)
-            .end_ts(self.end_ts)
+            .schedule(self.schedule.clone())
             .amount(0)
             .proof(self.proof.clone());
 
@@ -130,9 +142,7 @@ impl ClaimMerkleSetup {
             .event_authority(event_authority)
             .claim_bump(self.claim_bump)
             .total_amount(self.total_amount)
-            .schedule_type(self.schedule_type)
-            .start_ts(self.start_ts)
-            .end_ts(self.end_ts)
+            .schedule(self.schedule.clone())
             .amount(0)
             .proof(wrong_proof);
 
@@ -159,9 +169,7 @@ impl ClaimMerkleSetup {
             .event_authority(event_authority)
             .claim_bump(self.claim_bump)
             .total_amount(wrong_total_amount)
-            .schedule_type(self.schedule_type)
-            .start_ts(self.start_ts)
-            .end_ts(self.end_ts)
+            .schedule(self.schedule.clone())
             .amount(0)
             .proof(self.proof.clone());
 
@@ -177,9 +185,7 @@ pub struct ClaimMerkleSetupBuilder<'a> {
     ctx: &'a mut TestContext,
     token_program: Pubkey,
     claimant_amount: u64,
-    schedule_type: u8,
-    start_ts: Option<i64>,
-    end_ts: Option<i64>,
+    schedule: Option<VestingSchedule>,
     warp_to_end: bool,
     num_claimants: usize,
 }
@@ -190,9 +196,7 @@ impl<'a> ClaimMerkleSetupBuilder<'a> {
             ctx,
             token_program: TOKEN_PROGRAM_ID,
             claimant_amount: DEFAULT_CLAIMANT_AMOUNT,
-            schedule_type: LINEAR_SCHEDULE,
-            start_ts: None,
-            end_ts: None,
+            schedule: None,
             warp_to_end: true,
             num_claimants: 2,
         }
@@ -213,28 +217,17 @@ impl<'a> ClaimMerkleSetupBuilder<'a> {
         self
     }
 
-    pub fn schedule_type(mut self, schedule: u8) -> Self {
-        self.schedule_type = schedule;
+    pub fn schedule(mut self, schedule: VestingSchedule) -> Self {
+        self.schedule = Some(schedule);
+        self
+    }
+
+    pub fn linear(self) -> Self {
         self
     }
 
     pub fn immediate(mut self) -> Self {
-        self.schedule_type = IMMEDIATE_SCHEDULE;
-        self
-    }
-
-    pub fn linear(mut self) -> Self {
-        self.schedule_type = LINEAR_SCHEDULE;
-        self
-    }
-
-    pub fn start_ts(mut self, ts: i64) -> Self {
-        self.start_ts = Some(ts);
-        self
-    }
-
-    pub fn end_ts(mut self, ts: i64) -> Self {
-        self.end_ts = Some(ts);
+        self.schedule = Some(VestingSchedule::Immediate);
         self
     }
 
@@ -250,30 +243,27 @@ impl<'a> ClaimMerkleSetupBuilder<'a> {
 
     pub fn build(self) -> ClaimMerkleSetup {
         let current_ts = self.ctx.get_current_timestamp();
-        let start_ts = self.start_ts.unwrap_or(current_ts);
-        let end_ts = self.end_ts.unwrap_or(current_ts + 86400 * 365);
+        let schedule =
+            self.schedule.unwrap_or(VestingSchedule::Linear { start_ts: current_ts, end_ts: current_ts + 86400 * 365 });
 
-        // Create claimants and build merkle tree
+        let end_ts = match &schedule {
+            VestingSchedule::Immediate => current_ts,
+            VestingSchedule::Linear { end_ts, .. } => *end_ts,
+            VestingSchedule::Cliff { cliff_ts } => *cliff_ts,
+            VestingSchedule::CliffLinear { end_ts, .. } => *end_ts,
+        };
+
         let claimant = self.ctx.create_funded_keypair();
-        let mut leaves =
-            vec![MerkleLeaf::new(claimant.pubkey(), self.claimant_amount, self.schedule_type, start_ts, end_ts)];
+        let mut leaves = vec![MerkleLeaf::new(claimant.pubkey(), self.claimant_amount, schedule.clone())];
 
-        // Add additional claimants to make the tree more realistic
         for _ in 1..self.num_claimants {
             let other_claimant = Keypair::new();
-            leaves.push(MerkleLeaf::new(
-                other_claimant.pubkey(),
-                self.claimant_amount,
-                self.schedule_type,
-                start_ts,
-                end_ts,
-            ));
+            leaves.push(MerkleLeaf::new(other_claimant.pubkey(), self.claimant_amount, schedule.clone()));
         }
 
         let merkle_tree = MerkleTree::new(leaves);
         let total_distribution_amount = self.claimant_amount * self.num_claimants as u64;
 
-        // Create distribution with the merkle root
         let mut distribution_builder = CreateMerkleDistributionSetup::builder(self.ctx)
             .amount(total_distribution_amount)
             .total_amount(total_distribution_amount)
@@ -287,13 +277,10 @@ impl<'a> ClaimMerkleSetupBuilder<'a> {
         let create_ix = distribution_setup.build_instruction(self.ctx);
         create_ix.send_expect_success(self.ctx);
 
-        // Derive claim PDA
         let (claim_pda, claim_bump) = find_merkle_claim_pda(&distribution_setup.distribution_pda, &claimant.pubkey());
 
-        // Get proof for our claimant
         let proof = merkle_tree.get_proof_for_claimant(&claimant.pubkey()).unwrap();
 
-        // Create claimant token account
         let claimant_token_account = if self.token_program == TOKEN_2022_PROGRAM_ID {
             self.ctx.create_token_2022_account(&claimant.pubkey(), &distribution_setup.mint.pubkey())
         } else {
@@ -314,9 +301,7 @@ impl<'a> ClaimMerkleSetupBuilder<'a> {
             claimant_token_account,
             token_program: self.token_program,
             total_amount: self.claimant_amount,
-            schedule_type: self.schedule_type,
-            start_ts,
-            end_ts,
+            schedule,
             proof,
             merkle_tree,
             authority: distribution_setup.authority,
@@ -360,8 +345,7 @@ impl InstructionTestFixture for ClaimMerkleFixture {
     }
 
     fn data_len() -> usize {
-        // discriminator + claim_bump + total_amount + schedule_type + start_ts + end_ts + amount + proof_len (Borsh u32)
-        // (proof data is variable, minimum with empty proof)
-        1 + 1 + 8 + 1 + 8 + 8 + 8 + 4
+        // discriminator(1) + claim_bump(1) + total_amount(8) + amount(8) + Linear schedule(17) + proof_len(4) + proof(32)
+        1 + 1 + 8 + 8 + 17 + 4 + 32
     }
 }

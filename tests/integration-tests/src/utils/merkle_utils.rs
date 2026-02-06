@@ -1,7 +1,35 @@
+use rewards_program_client::types::VestingSchedule;
 use solana_sdk::pubkey::Pubkey;
 use tiny_keccak::{Hasher, Keccak};
 
 const LEAF_PREFIX: &[u8] = &[0];
+
+fn schedule_to_bytes(schedule: &VestingSchedule) -> Vec<u8> {
+    match schedule {
+        VestingSchedule::Immediate => vec![0],
+        VestingSchedule::Linear { start_ts, end_ts } => {
+            let mut bytes = Vec::with_capacity(17);
+            bytes.push(1);
+            bytes.extend_from_slice(&start_ts.to_le_bytes());
+            bytes.extend_from_slice(&end_ts.to_le_bytes());
+            bytes
+        }
+        VestingSchedule::Cliff { cliff_ts } => {
+            let mut bytes = Vec::with_capacity(9);
+            bytes.push(2);
+            bytes.extend_from_slice(&cliff_ts.to_le_bytes());
+            bytes
+        }
+        VestingSchedule::CliffLinear { start_ts, cliff_ts, end_ts } => {
+            let mut bytes = Vec::with_capacity(25);
+            bytes.push(3);
+            bytes.extend_from_slice(&start_ts.to_le_bytes());
+            bytes.extend_from_slice(&cliff_ts.to_le_bytes());
+            bytes.extend_from_slice(&end_ts.to_le_bytes());
+            bytes
+        }
+    }
+}
 
 fn keccak256(data: &[u8]) -> [u8; 32] {
     let mut hasher = Keccak::v256();
@@ -13,21 +41,16 @@ fn keccak256(data: &[u8]) -> [u8; 32] {
 
 /// Compute the merkle leaf hash for a claim.
 /// Matches the on-chain computation in merkle_utils.rs
-pub fn compute_leaf_hash(
-    claimant: &Pubkey,
-    total_amount: u64,
-    schedule_type: u8,
-    start_ts: i64,
-    end_ts: i64,
-) -> [u8; 32] {
-    let mut inner_data = [0u8; 32 + 8 + 1 + 8 + 8]; // 57 bytes
+pub fn compute_leaf_hash(claimant: &Pubkey, total_amount: u64, schedule: &VestingSchedule) -> [u8; 32] {
+    let schedule_bytes = schedule_to_bytes(schedule);
+    let schedule_len = schedule_bytes.len();
+    let inner_len = 32 + 8 + schedule_len;
+    let mut inner_data = [0u8; 65]; // max: 32 + 8 + 25 (CliffLinear)
     inner_data[0..32].copy_from_slice(claimant.as_ref());
     inner_data[32..40].copy_from_slice(&total_amount.to_le_bytes());
-    inner_data[40] = schedule_type;
-    inner_data[41..49].copy_from_slice(&start_ts.to_le_bytes());
-    inner_data[49..57].copy_from_slice(&end_ts.to_le_bytes());
+    inner_data[40..40 + schedule_len].copy_from_slice(&schedule_bytes);
 
-    let inner_hash = keccak256(&inner_data);
+    let inner_hash = keccak256(&inner_data[..inner_len]);
 
     let mut outer_data = [0u8; 1 + 32];
     outer_data[0..1].copy_from_slice(LEAF_PREFIX);
@@ -54,16 +77,14 @@ pub fn hash_pair(a: &[u8; 32], b: &[u8; 32]) -> [u8; 32] {
 pub struct MerkleLeaf {
     pub claimant: Pubkey,
     pub total_amount: u64,
-    pub schedule_type: u8,
-    pub start_ts: i64,
-    pub end_ts: i64,
+    pub schedule: VestingSchedule,
     pub leaf_hash: [u8; 32],
 }
 
 impl MerkleLeaf {
-    pub fn new(claimant: Pubkey, total_amount: u64, schedule_type: u8, start_ts: i64, end_ts: i64) -> Self {
-        let leaf_hash = compute_leaf_hash(&claimant, total_amount, schedule_type, start_ts, end_ts);
-        Self { claimant, total_amount, schedule_type, start_ts, end_ts, leaf_hash }
+    pub fn new(claimant: Pubkey, total_amount: u64, schedule: VestingSchedule) -> Self {
+        let leaf_hash = compute_leaf_hash(&claimant, total_amount, &schedule);
+        Self { claimant, total_amount, schedule, leaf_hash }
     }
 }
 

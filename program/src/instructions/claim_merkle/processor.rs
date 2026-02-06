@@ -26,13 +26,8 @@ pub fn process_claim_merkle(_program_id: &Address, accounts: &[AccountView], ins
     let mut distribution = MerkleDistribution::from_account(&distribution_data, ix.accounts.distribution, &ID)?;
     drop(distribution_data);
 
-    let leaf = compute_leaf_hash(
-        ix.accounts.claimant.address(),
-        ix.data.total_amount,
-        ix.data.schedule_type,
-        ix.data.start_ts,
-        ix.data.end_ts,
-    );
+    let schedule_bytes = ix.data.schedule.to_bytes();
+    let leaf = compute_leaf_hash(ix.accounts.claimant.address(), ix.data.total_amount, &schedule_bytes);
     verify_proof_or_error(&ix.data.proof, &distribution.merkle_root, &leaf)?;
 
     let claim_seeds = MerkleClaimSeeds {

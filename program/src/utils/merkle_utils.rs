@@ -13,23 +13,18 @@ fn keccak256(data: &[u8]) -> [u8; 32] {
 /// Compute the merkle leaf hash for a claim.
 ///
 /// The leaf format is:
-/// `hash(LEAF_PREFIX || hash(claimant || total_amount || schedule_type || start_ts || end_ts))`
-pub fn compute_leaf_hash(
-    claimant: &Address,
-    total_amount: u64,
-    schedule_type: u8,
-    start_ts: i64,
-    end_ts: i64,
-) -> [u8; 32] {
-    // Inner hash: hash(claimant || total_amount || schedule_type || start_ts || end_ts)
-    let mut inner_data = [0u8; 32 + 8 + 1 + 8 + 8]; // 57 bytes
+/// `hash(LEAF_PREFIX || hash(claimant || total_amount || schedule_bytes))`
+pub fn compute_leaf_hash(claimant: &Address, total_amount: u64, schedule_bytes: &[u8]) -> [u8; 32] {
+    // Inner hash: hash(claimant || total_amount || schedule_bytes)
+    // Max: 32 + 8 + 25 = 65 bytes (CliffLinear)
+    let schedule_len = schedule_bytes.len();
+    let inner_len = 32 + 8 + schedule_len;
+    let mut inner_data = [0u8; 65];
     inner_data[0..32].copy_from_slice(claimant.as_ref());
     inner_data[32..40].copy_from_slice(&total_amount.to_le_bytes());
-    inner_data[40] = schedule_type;
-    inner_data[41..49].copy_from_slice(&start_ts.to_le_bytes());
-    inner_data[49..57].copy_from_slice(&end_ts.to_le_bytes());
+    inner_data[40..40 + schedule_len].copy_from_slice(schedule_bytes);
 
-    let inner_hash = keccak256(&inner_data);
+    let inner_hash = keccak256(&inner_data[..inner_len]);
 
     // Outer hash: hash(LEAF_PREFIX || inner_hash)
     let mut outer_data = [0u8; 1 + 32]; // 33 bytes
@@ -83,17 +78,19 @@ mod tests {
     use alloc::{vec, vec::Vec};
 
     use super::*;
+    use crate::utils::VestingSchedule;
+
+    fn schedule_bytes(schedule: VestingSchedule) -> Vec<u8> {
+        schedule.to_bytes()
+    }
 
     #[test]
     fn test_compute_leaf_hash_deterministic() {
         let claimant = Address::new_from_array([1u8; 32]);
-        let total_amount = 1000u64;
-        let schedule_type = 1u8; // Linear
-        let start_ts = 100i64;
-        let end_ts = 200i64;
+        let sb = schedule_bytes(VestingSchedule::Linear { start_ts: 100, end_ts: 200 });
 
-        let hash1 = compute_leaf_hash(&claimant, total_amount, schedule_type, start_ts, end_ts);
-        let hash2 = compute_leaf_hash(&claimant, total_amount, schedule_type, start_ts, end_ts);
+        let hash1 = compute_leaf_hash(&claimant, 1000, &sb);
+        let hash2 = compute_leaf_hash(&claimant, 1000, &sb);
 
         assert_eq!(hash1, hash2);
     }
@@ -102,13 +99,10 @@ mod tests {
     fn test_compute_leaf_hash_different_inputs() {
         let claimant1 = Address::new_from_array([1u8; 32]);
         let claimant2 = Address::new_from_array([2u8; 32]);
-        let total_amount = 1000u64;
-        let schedule_type = 1u8;
-        let start_ts = 100i64;
-        let end_ts = 200i64;
+        let sb = schedule_bytes(VestingSchedule::Linear { start_ts: 100, end_ts: 200 });
 
-        let hash1 = compute_leaf_hash(&claimant1, total_amount, schedule_type, start_ts, end_ts);
-        let hash2 = compute_leaf_hash(&claimant2, total_amount, schedule_type, start_ts, end_ts);
+        let hash1 = compute_leaf_hash(&claimant1, 1000, &sb);
+        let hash2 = compute_leaf_hash(&claimant2, 1000, &sb);
 
         assert_ne!(hash1, hash2);
     }
@@ -116,12 +110,10 @@ mod tests {
     #[test]
     fn test_compute_leaf_hash_different_amounts() {
         let claimant = Address::new_from_array([1u8; 32]);
-        let schedule_type = 1u8;
-        let start_ts = 100i64;
-        let end_ts = 200i64;
+        let sb = schedule_bytes(VestingSchedule::Linear { start_ts: 100, end_ts: 200 });
 
-        let hash1 = compute_leaf_hash(&claimant, 1000, schedule_type, start_ts, end_ts);
-        let hash2 = compute_leaf_hash(&claimant, 2000, schedule_type, start_ts, end_ts);
+        let hash1 = compute_leaf_hash(&claimant, 1000, &sb);
+        let hash2 = compute_leaf_hash(&claimant, 2000, &sb);
 
         assert_ne!(hash1, hash2);
     }
@@ -129,11 +121,11 @@ mod tests {
     #[test]
     fn test_compute_leaf_hash_different_timestamps() {
         let claimant = Address::new_from_array([1u8; 32]);
-        let total_amount = 1000u64;
-        let schedule_type = 1u8;
+        let sb1 = schedule_bytes(VestingSchedule::Linear { start_ts: 100, end_ts: 200 });
+        let sb2 = schedule_bytes(VestingSchedule::Linear { start_ts: 100, end_ts: 300 });
 
-        let hash1 = compute_leaf_hash(&claimant, total_amount, schedule_type, 100, 200);
-        let hash2 = compute_leaf_hash(&claimant, total_amount, schedule_type, 100, 300);
+        let hash1 = compute_leaf_hash(&claimant, 1000, &sb1);
+        let hash2 = compute_leaf_hash(&claimant, 1000, &sb2);
 
         assert_ne!(hash1, hash2);
     }
@@ -141,12 +133,11 @@ mod tests {
     #[test]
     fn test_compute_leaf_hash_different_schedule_types() {
         let claimant = Address::new_from_array([1u8; 32]);
-        let total_amount = 1000u64;
-        let start_ts = 100i64;
-        let end_ts = 200i64;
+        let sb1 = schedule_bytes(VestingSchedule::Immediate {});
+        let sb2 = schedule_bytes(VestingSchedule::Linear { start_ts: 100, end_ts: 200 });
 
-        let hash1 = compute_leaf_hash(&claimant, total_amount, 0, start_ts, end_ts); // Immediate
-        let hash2 = compute_leaf_hash(&claimant, total_amount, 1, start_ts, end_ts); // Linear
+        let hash1 = compute_leaf_hash(&claimant, 1000, &sb1);
+        let hash2 = compute_leaf_hash(&claimant, 1000, &sb2);
 
         assert_ne!(hash1, hash2);
     }
@@ -175,9 +166,9 @@ mod tests {
 
     #[test]
     fn test_verify_proof_single_leaf() {
-        // A tree with a single leaf has the leaf as the root
         let claimant = Address::new_from_array([1u8; 32]);
-        let leaf = compute_leaf_hash(&claimant, 1000, 1, 100, 200);
+        let sb = schedule_bytes(VestingSchedule::Linear { start_ts: 100, end_ts: 200 });
+        let leaf = compute_leaf_hash(&claimant, 1000, &sb);
         let root = leaf;
         let proof: Vec<[u8; 32]> = vec![];
 
@@ -188,50 +179,35 @@ mod tests {
     fn test_verify_proof_two_leaves() {
         let claimant1 = Address::new_from_array([1u8; 32]);
         let claimant2 = Address::new_from_array([2u8; 32]);
+        let sb = schedule_bytes(VestingSchedule::Linear { start_ts: 100, end_ts: 200 });
 
-        let leaf1 = compute_leaf_hash(&claimant1, 1000, 1, 100, 200);
-        let leaf2 = compute_leaf_hash(&claimant2, 2000, 1, 100, 200);
+        let leaf1 = compute_leaf_hash(&claimant1, 1000, &sb);
+        let leaf2 = compute_leaf_hash(&claimant2, 2000, &sb);
 
         let root = hash_pair(&leaf1, &leaf2);
 
-        // Proof for leaf1 is [leaf2]
         assert!(verify_proof(&[leaf2], &root, &leaf1));
-
-        // Proof for leaf2 is [leaf1]
         assert!(verify_proof(&[leaf1], &root, &leaf2));
     }
 
     #[test]
     fn test_verify_proof_four_leaves() {
+        let sb = schedule_bytes(VestingSchedule::Linear { start_ts: 100, end_ts: 200 });
         let leaves: Vec<[u8; 32]> = (0..4)
             .map(|i| {
                 let mut addr = [0u8; 32];
                 addr[0] = i;
-                compute_leaf_hash(&Address::new_from_array(addr), 1000 * (i as u64 + 1), 1, 100, 200)
+                compute_leaf_hash(&Address::new_from_array(addr), 1000 * (i as u64 + 1), &sb)
             })
             .collect();
-
-        // Build tree:
-        //        root
-        //       /    \
-        //     n01    n23
-        //    /  \    /  \
-        //   l0  l1  l2  l3
 
         let n01 = hash_pair(&leaves[0], &leaves[1]);
         let n23 = hash_pair(&leaves[2], &leaves[3]);
         let root = hash_pair(&n01, &n23);
 
-        // Proof for leaf0: [leaf1, n23]
         assert!(verify_proof(&[leaves[1], n23], &root, &leaves[0]));
-
-        // Proof for leaf1: [leaf0, n23]
         assert!(verify_proof(&[leaves[0], n23], &root, &leaves[1]));
-
-        // Proof for leaf2: [leaf3, n01]
         assert!(verify_proof(&[leaves[3], n01], &root, &leaves[2]));
-
-        // Proof for leaf3: [leaf2, n01]
         assert!(verify_proof(&[leaves[2], n01], &root, &leaves[3]));
     }
 
@@ -239,13 +215,13 @@ mod tests {
     fn test_verify_proof_invalid_proof() {
         let claimant1 = Address::new_from_array([1u8; 32]);
         let claimant2 = Address::new_from_array([2u8; 32]);
+        let sb = schedule_bytes(VestingSchedule::Linear { start_ts: 100, end_ts: 200 });
 
-        let leaf1 = compute_leaf_hash(&claimant1, 1000, 1, 100, 200);
-        let leaf2 = compute_leaf_hash(&claimant2, 2000, 1, 100, 200);
+        let leaf1 = compute_leaf_hash(&claimant1, 1000, &sb);
+        let leaf2 = compute_leaf_hash(&claimant2, 2000, &sb);
 
         let root = hash_pair(&leaf1, &leaf2);
 
-        // Wrong proof
         let wrong_sibling = [99u8; 32];
         assert!(!verify_proof(&[wrong_sibling], &root, &leaf1));
     }
@@ -254,21 +230,22 @@ mod tests {
     fn test_verify_proof_invalid_leaf() {
         let claimant1 = Address::new_from_array([1u8; 32]);
         let claimant2 = Address::new_from_array([2u8; 32]);
+        let sb = schedule_bytes(VestingSchedule::Linear { start_ts: 100, end_ts: 200 });
 
-        let leaf1 = compute_leaf_hash(&claimant1, 1000, 1, 100, 200);
-        let leaf2 = compute_leaf_hash(&claimant2, 2000, 1, 100, 200);
+        let leaf1 = compute_leaf_hash(&claimant1, 1000, &sb);
+        let leaf2 = compute_leaf_hash(&claimant2, 2000, &sb);
 
         let root = hash_pair(&leaf1, &leaf2);
 
-        // Wrong leaf
-        let wrong_leaf = compute_leaf_hash(&claimant1, 9999, 1, 100, 200);
+        let wrong_leaf = compute_leaf_hash(&claimant1, 9999, &sb);
         assert!(!verify_proof(&[leaf2], &root, &wrong_leaf));
     }
 
     #[test]
     fn test_verify_proof_or_error_success() {
         let claimant = Address::new_from_array([1u8; 32]);
-        let leaf = compute_leaf_hash(&claimant, 1000, 1, 100, 200);
+        let sb = schedule_bytes(VestingSchedule::Linear { start_ts: 100, end_ts: 200 });
+        let leaf = compute_leaf_hash(&claimant, 1000, &sb);
         let root = leaf;
         let proof: Vec<[u8; 32]> = vec![];
 
@@ -278,7 +255,8 @@ mod tests {
     #[test]
     fn test_verify_proof_or_error_failure() {
         let claimant = Address::new_from_array([1u8; 32]);
-        let leaf = compute_leaf_hash(&claimant, 1000, 1, 100, 200);
+        let sb = schedule_bytes(VestingSchedule::Linear { start_ts: 100, end_ts: 200 });
+        let leaf = compute_leaf_hash(&claimant, 1000, &sb);
         let wrong_root = [99u8; 32];
         let proof: Vec<[u8; 32]> = vec![];
 

@@ -20,5 +20,4 @@ pub use create_direct_distribution::{
 };
 pub use create_merkle_distribution::{
     CreateMerkleDistributionFixture, CreateMerkleDistributionSetup, DEFAULT_MERKLE_DISTRIBUTION_AMOUNT,
-    IMMEDIATE_SCHEDULE, LINEAR_SCHEDULE,
 };

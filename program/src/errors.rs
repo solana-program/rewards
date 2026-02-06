@@ -76,6 +76,10 @@ pub enum RewardsProgramError {
     /// (17) Claim has not been fully vested
     #[error("Claim has not been fully vested")]
     ClaimNotFullyVested,
+
+    /// (18) Invalid cliff timestamp
+    #[error("Invalid cliff timestamp")]
+    InvalidCliffTimestamp,
 }
 
 impl From<RewardsProgramError> for ProgramError {

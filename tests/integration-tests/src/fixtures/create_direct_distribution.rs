@@ -10,7 +10,6 @@ use crate::utils::{
     find_direct_distribution_pda, find_event_authority_pda, InstructionTestFixture, TestContext, TestInstruction,
 };
 
-pub const LINEAR_SCHEDULE: u8 = 1;
 pub const DEFAULT_DISTRIBUTION_AMOUNT: u64 = 10_000_000;
 
 pub struct CreateDirectDistributionSetup {

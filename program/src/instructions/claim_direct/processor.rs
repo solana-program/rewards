@@ -4,7 +4,7 @@ use pinocchio_token_2022::instructions::TransferChecked;
 use crate::{
     events::ClaimedEvent,
     state::{DirectDistribution, DirectRecipient},
-    traits::{AccountSerialize, ClaimTracker, Distribution, DistributionSigner, EventSerialize},
+    traits::{AccountSerialize, ClaimTracker, Distribution, DistributionSigner, EventSerialize, VestingParams},
     utils::{emit_event, get_current_timestamp, get_mint_decimals, resolve_claim_amount},
     ID,
 };
@@ -27,7 +27,7 @@ pub fn process_claim_direct(_program_id: &Address, accounts: &[AccountView], ins
     recipient.validate_distribution(ix.accounts.distribution.address())?;
     recipient.validate_recipient(ix.accounts.recipient.address())?;
 
-    let unlocked_amount = recipient.calculate_unlocked_amount(current_ts)?;
+    let unlocked_amount = VestingParams::calculate_unlocked(&recipient, current_ts)?;
     let claimable_amount = ClaimTracker::claimable_amount(&recipient, unlocked_amount)?;
     let claim_amount = resolve_claim_amount(ix.data.amount, claimable_amount)?;
 
