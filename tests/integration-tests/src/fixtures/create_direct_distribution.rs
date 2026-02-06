@@ -121,26 +121,17 @@ impl<'a> CreateDirectDistributionSetupBuilder<'a> {
         let mint = Keypair::new();
         let token_program = self.token_program;
 
-        if token_program == TOKEN_2022_PROGRAM_ID {
-            self.ctx.create_token_2022_mint(&mint, &self.ctx.payer.pubkey(), 6);
-        } else {
-            self.ctx.create_mint(&mint, &self.ctx.payer.pubkey(), 6);
-        }
+        self.ctx.create_mint_for_program(&mint, &self.ctx.payer.pubkey(), 6, &token_program);
 
         let (distribution_pda, bump) =
             find_direct_distribution_pda(&mint.pubkey(), &authority.pubkey(), &seeds.pubkey());
-
-        let vault = if token_program == TOKEN_2022_PROGRAM_ID {
-            self.ctx.create_token_2022_account(&distribution_pda, &mint.pubkey())
-        } else {
-            self.ctx.create_token_account(&distribution_pda, &mint.pubkey())
-        };
-
-        let authority_token_account = if token_program == TOKEN_2022_PROGRAM_ID {
-            self.ctx.create_token_2022_account_with_balance(&authority.pubkey(), &mint.pubkey(), self.amount)
-        } else {
-            self.ctx.create_token_account_with_balance(&authority.pubkey(), &mint.pubkey(), self.amount)
-        };
+        let vault = self.ctx.create_ata_for_program(&distribution_pda, &mint.pubkey(), &token_program);
+        let authority_token_account = self.ctx.create_ata_for_program_with_balance(
+            &authority.pubkey(),
+            &mint.pubkey(),
+            self.amount,
+            &token_program,
+        );
 
         CreateDirectDistributionSetup {
             authority,
