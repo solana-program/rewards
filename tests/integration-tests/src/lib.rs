@@ -8,6 +8,8 @@ mod test_claim_direct;
 #[cfg(test)]
 mod test_claim_merkle;
 #[cfg(test)]
+mod test_cliff_vesting;
+#[cfg(test)]
 mod test_close_direct_distribution;
 #[cfg(test)]
 mod test_close_direct_recipient;

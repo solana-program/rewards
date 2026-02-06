@@ -1,4 +1,4 @@
-use rewards_program_client::instructions::AddDirectRecipientBuilder;
+use rewards_program_client::{instructions::AddDirectRecipientBuilder, types::VestingSchedule};
 use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signer},
@@ -6,7 +6,7 @@ use solana_sdk::{
 use spl_token_2022::ID as TOKEN_2022_PROGRAM_ID;
 use spl_token_interface::ID as TOKEN_PROGRAM_ID;
 
-use crate::fixtures::{CreateDirectDistributionSetup, LINEAR_SCHEDULE};
+use crate::fixtures::CreateDirectDistributionSetup;
 use crate::utils::{
     find_direct_recipient_pda, find_event_authority_pda, InstructionTestFixture, TestContext, TestInstruction,
 };
@@ -20,9 +20,7 @@ pub struct AddDirectRecipientSetup {
     pub recipient_pda: Pubkey,
     pub recipient_bump: u8,
     pub amount: u64,
-    pub schedule_type: u8,
-    pub start_ts: i64,
-    pub end_ts: i64,
+    pub schedule: VestingSchedule,
     pub token_program: Pubkey,
     pub mint: Pubkey,
     pub vault: Pubkey,
@@ -59,13 +57,29 @@ impl AddDirectRecipientSetup {
             recipient_pda,
             recipient_bump,
             amount: DEFAULT_RECIPIENT_AMOUNT,
-            schedule_type: LINEAR_SCHEDULE,
-            start_ts: current_ts,
-            end_ts: current_ts + 86400 * 365,
+            schedule: VestingSchedule::Linear { start_ts: current_ts, end_ts: current_ts + 86400 * 365 },
             token_program: distribution_setup.token_program,
             mint: distribution_setup.mint.pubkey(),
             vault: distribution_setup.vault,
             distribution_amount: distribution_setup.amount,
+        }
+    }
+
+    pub fn start_ts(&self) -> i64 {
+        match &self.schedule {
+            VestingSchedule::Immediate => 0,
+            VestingSchedule::Linear { start_ts, .. } => *start_ts,
+            VestingSchedule::Cliff { .. } => 0,
+            VestingSchedule::CliffLinear { start_ts, .. } => *start_ts,
+        }
+    }
+
+    pub fn end_ts(&self) -> i64 {
+        match &self.schedule {
+            VestingSchedule::Immediate => 0,
+            VestingSchedule::Linear { end_ts, .. } => *end_ts,
+            VestingSchedule::Cliff { cliff_ts } => *cliff_ts,
+            VestingSchedule::CliffLinear { end_ts, .. } => *end_ts,
         }
     }
 
@@ -85,9 +99,7 @@ impl AddDirectRecipientSetup {
             .event_authority(event_authority)
             .bump(self.recipient_bump)
             .amount(self.amount)
-            .schedule_type(self.schedule_type)
-            .start_ts(self.start_ts)
-            .end_ts(self.end_ts);
+            .schedule(self.schedule.clone());
 
         TestInstruction {
             instruction: builder.instruction(),
@@ -116,9 +128,7 @@ impl AddDirectRecipientSetup {
             .event_authority(event_authority)
             .bump(self.recipient_bump)
             .amount(self.amount)
-            .schedule_type(self.schedule_type)
-            .start_ts(self.start_ts)
-            .end_ts(self.end_ts);
+            .schedule(self.schedule.clone());
 
         TestInstruction {
             instruction: builder.instruction(),
@@ -132,9 +142,7 @@ pub struct AddDirectRecipientSetupBuilder<'a> {
     ctx: &'a mut TestContext,
     token_program: Pubkey,
     amount: u64,
-    schedule_type: u8,
-    start_ts: Option<i64>,
-    end_ts: Option<i64>,
+    schedule: Option<VestingSchedule>,
     distribution_amount: Option<u64>,
 }
 
@@ -144,9 +152,7 @@ impl<'a> AddDirectRecipientSetupBuilder<'a> {
             ctx,
             token_program: TOKEN_PROGRAM_ID,
             amount: DEFAULT_RECIPIENT_AMOUNT,
-            schedule_type: LINEAR_SCHEDULE,
-            start_ts: None,
-            end_ts: None,
+            schedule: None,
             distribution_amount: None,
         }
     }
@@ -161,18 +167,8 @@ impl<'a> AddDirectRecipientSetupBuilder<'a> {
         self
     }
 
-    pub fn schedule_type(mut self, schedule_type: u8) -> Self {
-        self.schedule_type = schedule_type;
-        self
-    }
-
-    pub fn start_ts(mut self, ts: i64) -> Self {
-        self.start_ts = Some(ts);
-        self
-    }
-
-    pub fn end_ts(mut self, ts: i64) -> Self {
-        self.end_ts = Some(ts);
+    pub fn schedule(mut self, schedule: VestingSchedule) -> Self {
+        self.schedule = Some(schedule);
         self
     }
 
@@ -200,8 +196,8 @@ impl<'a> AddDirectRecipientSetupBuilder<'a> {
             find_direct_recipient_pda(&distribution_setup.distribution_pda, &recipient.pubkey());
 
         let current_ts = self.ctx.get_current_timestamp();
-        let start_ts = self.start_ts.unwrap_or(current_ts);
-        let end_ts = self.end_ts.unwrap_or(current_ts + 86400 * 365);
+        let schedule =
+            self.schedule.unwrap_or(VestingSchedule::Linear { start_ts: current_ts, end_ts: current_ts + 86400 * 365 });
 
         AddDirectRecipientSetup {
             authority: distribution_setup.authority,
@@ -210,9 +206,7 @@ impl<'a> AddDirectRecipientSetupBuilder<'a> {
             recipient_pda,
             recipient_bump,
             amount: self.amount,
-            schedule_type: self.schedule_type,
-            start_ts,
-            end_ts,
+            schedule,
             token_program: self.token_program,
             mint: distribution_setup.mint.pubkey(),
             vault: distribution_setup.vault,
@@ -255,6 +249,7 @@ impl InstructionTestFixture for AddDirectRecipientFixture {
     }
 
     fn data_len() -> usize {
-        1 + 1 + 8 + 1 + 8 + 8 // discriminator + bump + amount + schedule_type + start_ts + end_ts
+        // discriminator(1) + bump(1) + amount(8) + Linear schedule(17) = 27
+        1 + 1 + 8 + 17
     }
 }

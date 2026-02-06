@@ -101,7 +101,7 @@ fn test_close_merkle_claim_returns_rent() {
     let claim_setup = ClaimMerkleSetup::builder(&mut ctx).linear().warp_to_end(false).build();
 
     // Warp to 50% and make a partial claim
-    let mid_point = claim_setup.start_ts + (claim_setup.end_ts - claim_setup.start_ts) / 2;
+    let mid_point = claim_setup.start_ts() + (claim_setup.end_ts() - claim_setup.start_ts()) / 2;
     ctx.warp_to_timestamp(mid_point);
 
     let claim_ix = claim_setup.build_instruction(&ctx);
@@ -115,7 +115,7 @@ fn test_close_merkle_claim_returns_rent() {
     let claim_rent = claim_account.lamports;
 
     // Warp to clawback and close distribution
-    ctx.warp_to_timestamp(claim_setup.end_ts + 86400 * 365 + 1);
+    ctx.warp_to_timestamp(claim_setup.end_ts() + 86400 * 365 + 1);
 
     let close_dist_setup = CloseMerkleDistributionSetup {
         authority: claim_setup.authority.insecure_clone(),
@@ -125,7 +125,7 @@ fn test_close_merkle_claim_returns_rent() {
         authority_token_account: ctx.create_token_account(&claim_setup.authority.pubkey(), &claim_setup.mint),
         token_program: claim_setup.token_program,
         funded_amount: 0,
-        clawback_ts: claim_setup.end_ts + 86400 * 365,
+        clawback_ts: claim_setup.end_ts() + 86400 * 365,
     };
 
     let close_dist_ix = close_dist_setup.build_instruction(&ctx);

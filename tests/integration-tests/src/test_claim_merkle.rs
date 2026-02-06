@@ -1,5 +1,7 @@
 use solana_sdk::signature::Signer;
 
+use rewards_program_client::types::VestingSchedule;
+
 use crate::fixtures::{ClaimMerkleFixture, ClaimMerkleSetup};
 use crate::utils::{
     assert_account_closed, assert_merkle_claim, assert_rewards_error, expected_linear_unlock, test_missing_signer,
@@ -124,14 +126,14 @@ fn test_claim_merkle_partial_claim_linear() {
     let setup = ClaimMerkleSetup::builder(&mut ctx).linear().warp_to_end(false).build();
 
     // Warp to 50% through the vesting period
-    let mid_point = setup.start_ts + (setup.end_ts - setup.start_ts) / 2;
+    let mid_point = setup.start_ts() + (setup.end_ts() - setup.start_ts()) / 2;
     ctx.warp_to_timestamp(mid_point);
 
     let instruction = setup.build_instruction(&ctx);
     instruction.send_expect_success(&mut ctx);
 
     let balance = ctx.get_token_balance(&setup.claimant_token_account);
-    let expected = expected_linear_unlock(setup.total_amount, setup.start_ts, setup.end_ts, mid_point);
+    let expected = expected_linear_unlock(setup.total_amount, setup.start_ts(), setup.end_ts(), mid_point);
     assert_eq!(balance, expected, "Balance should match exact linear unlock at 50%");
 
     // Claim account should still exist since not fully claimed
@@ -144,18 +146,18 @@ fn test_claim_merkle_partial_claim_then_full() {
     let setup = ClaimMerkleSetup::builder(&mut ctx).linear().warp_to_end(false).build();
 
     // First claim at 50%
-    let mid_point = setup.start_ts + (setup.end_ts - setup.start_ts) / 2;
+    let mid_point = setup.start_ts() + (setup.end_ts() - setup.start_ts()) / 2;
     ctx.warp_to_timestamp(mid_point);
 
     let instruction = setup.build_instruction(&ctx);
     instruction.send_expect_success(&mut ctx);
 
     let first_balance = ctx.get_token_balance(&setup.claimant_token_account);
-    let expected_first = expected_linear_unlock(setup.total_amount, setup.start_ts, setup.end_ts, mid_point);
+    let expected_first = expected_linear_unlock(setup.total_amount, setup.start_ts(), setup.end_ts(), mid_point);
     assert_eq!(first_balance, expected_first, "Balance should match exact linear unlock at 50%");
 
     // Now warp to end and claim rest
-    ctx.warp_to_timestamp(setup.end_ts);
+    ctx.warp_to_timestamp(setup.end_ts());
 
     let instruction2 = setup.build_instruction(&ctx);
     instruction2.send_expect_success(&mut ctx);
@@ -186,9 +188,7 @@ fn test_claim_merkle_before_start() {
     let current_ts = ctx.get_current_timestamp();
 
     let setup = ClaimMerkleSetup::builder(&mut ctx)
-        .linear()
-        .start_ts(current_ts + 86400) // Start 1 day in future
-        .end_ts(current_ts + 86400 * 2)
+        .schedule(VestingSchedule::Linear { start_ts: current_ts + 86400, end_ts: current_ts + 86400 * 2 })
         .warp_to_end(false)
         .build();
 
@@ -221,7 +221,7 @@ fn test_claim_merkle_amount_exceeds_available() {
     let setup = ClaimMerkleSetup::builder(&mut ctx).linear().warp_to_end(false).build();
 
     // Warp to 25% through vesting
-    let quarter_point = setup.start_ts + (setup.end_ts - setup.start_ts) / 4;
+    let quarter_point = setup.start_ts() + (setup.end_ts() - setup.start_ts()) / 4;
     ctx.warp_to_timestamp(quarter_point);
 
     // Try to claim full amount when only ~25% is unlocked
@@ -249,14 +249,14 @@ fn test_claim_merkle_idempotent_claim_creation() {
     let setup = ClaimMerkleSetup::builder(&mut ctx).linear().warp_to_end(false).build();
 
     // First claim at 50%
-    let mid_point = setup.start_ts + (setup.end_ts - setup.start_ts) / 2;
+    let mid_point = setup.start_ts() + (setup.end_ts() - setup.start_ts()) / 2;
     ctx.warp_to_timestamp(mid_point);
 
     let instruction = setup.build_instruction(&ctx);
     instruction.send_expect_success(&mut ctx);
 
     let first_balance = ctx.get_token_balance(&setup.claimant_token_account);
-    let expected = expected_linear_unlock(setup.total_amount, setup.start_ts, setup.end_ts, mid_point);
+    let expected = expected_linear_unlock(setup.total_amount, setup.start_ts(), setup.end_ts(), mid_point);
     assert_eq!(first_balance, expected, "Balance should match exact linear unlock at 50%");
 
     // Advance slot to get a fresh blockhash for the second transaction

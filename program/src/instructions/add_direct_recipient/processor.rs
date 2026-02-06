@@ -4,8 +4,8 @@ use crate::{
     errors::RewardsProgramError,
     events::RecipientAddedEvent,
     state::{DirectDistribution, DirectRecipient},
-    traits::{AccountSerialize, AccountSize, Distribution, EventSerialize, InstructionData, PdaSeeds},
-    utils::{create_pda_account, emit_event, get_token_account_balance, VestingScheduleType},
+    traits::{AccountSerialize, Distribution, EventSerialize, InstructionData, PdaSeeds},
+    utils::{create_pda_account, emit_event, get_token_account_balance},
     ID,
 };
 
@@ -18,9 +18,6 @@ pub fn process_add_direct_recipient(
 ) -> ProgramResult {
     let ix = AddDirectRecipient::try_from((instruction_data, accounts))?;
     ix.data.validate()?;
-
-    let schedule_type =
-        VestingScheduleType::from_u8(ix.data.schedule_type).ok_or(RewardsProgramError::InvalidScheduleType)?;
 
     let distribution_data = ix.accounts.distribution.try_borrow()?;
     let mut distribution = DirectDistribution::from_account(&distribution_data, ix.accounts.distribution, &ID)?;
@@ -42,9 +39,7 @@ pub fn process_add_direct_recipient(
         *ix.accounts.recipient.address(),
         *ix.accounts.payer.address(),
         ix.data.amount,
-        schedule_type,
-        ix.data.start_ts,
-        ix.data.end_ts,
+        ix.data.schedule,
     );
 
     recipient.validate_pda(ix.accounts.recipient_account, &ID, ix.data.bump)?;
@@ -55,7 +50,7 @@ pub fn process_add_direct_recipient(
 
     create_pda_account(
         ix.accounts.payer,
-        DirectRecipient::LEN,
+        DirectRecipient::calculate_account_size(&ix.data.schedule),
         &ID,
         ix.accounts.recipient_account,
         recipient_seeds_array,
@@ -74,9 +69,7 @@ pub fn process_add_direct_recipient(
         *ix.accounts.distribution.address(),
         *ix.accounts.recipient.address(),
         ix.data.amount,
-        ix.data.schedule_type,
-        ix.data.start_ts,
-        ix.data.end_ts,
+        ix.data.schedule,
     );
     emit_event(&ID, ix.accounts.event_authority, ix.accounts.program, &event.to_bytes())?;
 

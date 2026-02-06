@@ -1,4 +1,5 @@
 use rewards_program_client::instructions::{AddDirectRecipientBuilder, CloseDirectRecipientBuilder};
+use rewards_program_client::types::VestingSchedule;
 use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signer},
@@ -6,7 +7,7 @@ use solana_sdk::{
 use spl_token_2022::ID as TOKEN_2022_PROGRAM_ID;
 use spl_token_interface::ID as TOKEN_PROGRAM_ID;
 
-use crate::fixtures::{ClaimDirectSetup, CreateDirectDistributionSetup, IMMEDIATE_SCHEDULE};
+use crate::fixtures::{ClaimDirectSetup, CreateDirectDistributionSetup};
 use crate::utils::{
     find_direct_recipient_pda, find_event_authority_pda, InstructionTestFixture, TestContext, TestInstruction,
 };
@@ -143,9 +144,7 @@ impl<'a> CloseDirectRecipientSetupBuilder<'a> {
             .event_authority(event_authority)
             .bump(recipient_bump)
             .amount(self.amount)
-            .schedule_type(IMMEDIATE_SCHEDULE)
-            .start_ts(current_ts)
-            .end_ts(current_ts + 1);
+            .schedule(VestingSchedule::Immediate);
 
         let add_ix = TestInstruction {
             instruction: add_builder.instruction(),

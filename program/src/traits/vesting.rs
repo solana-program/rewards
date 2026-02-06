@@ -1,33 +1,23 @@
 use pinocchio::error::ProgramError;
 
-use crate::utils::{calculate_linear_unlock, VestingScheduleType};
+use crate::utils::VestingSchedule;
 
 /// Interface for types that provide vesting schedule parameters.
 ///
 /// Both DirectRecipient (stores in account) and MerkleClaimData (from instruction)
-/// provide vesting params. This trait enables shared unlock calculation logic.
+/// provide vesting params. This trait enables shared unlock calculation logic
+/// via the VestingSchedule enum.
 pub trait VestingParams {
     /// Total amount subject to vesting
     fn total_amount(&self) -> u64;
 
-    /// Vesting start timestamp (unix seconds)
-    fn start_ts(&self) -> i64;
+    /// The vesting schedule for this allocation
+    fn vesting_schedule(&self) -> VestingSchedule;
 
-    /// Vesting end timestamp (unix seconds)
-    fn end_ts(&self) -> i64;
-
-    /// Vesting schedule type
-    fn schedule_type(&self) -> VestingScheduleType;
-
-    /// Calculates the unlocked amount at the given timestamp based on schedule type
+    /// Calculates the unlocked amount at the given timestamp based on schedule
     #[inline(always)]
     fn calculate_unlocked(&self, current_ts: i64) -> Result<u64, ProgramError> {
-        match self.schedule_type() {
-            VestingScheduleType::Immediate => Ok(self.total_amount()),
-            VestingScheduleType::Linear => {
-                calculate_linear_unlock(self.total_amount(), self.start_ts(), self.end_ts(), current_ts)
-            }
-        }
+        self.vesting_schedule().calculate_unlocked(self.total_amount(), current_ts)
     }
 }
 
@@ -37,9 +27,7 @@ mod tests {
 
     struct MockVesting {
         total_amount: u64,
-        start_ts: i64,
-        end_ts: i64,
-        schedule_type: VestingScheduleType,
+        schedule: VestingSchedule,
     }
 
     impl VestingParams for MockVesting {
@@ -47,91 +35,107 @@ mod tests {
             self.total_amount
         }
 
-        fn start_ts(&self) -> i64 {
-            self.start_ts
-        }
-
-        fn end_ts(&self) -> i64 {
-            self.end_ts
-        }
-
-        fn schedule_type(&self) -> VestingScheduleType {
-            self.schedule_type
+        fn vesting_schedule(&self) -> VestingSchedule {
+            self.schedule
         }
     }
 
     #[test]
     fn test_calculate_unlocked_linear_before_start() {
         let vesting =
-            MockVesting { total_amount: 1000, start_ts: 100, end_ts: 200, schedule_type: VestingScheduleType::Linear };
+            MockVesting { total_amount: 1000, schedule: VestingSchedule::Linear { start_ts: 100, end_ts: 200 } };
         assert_eq!(vesting.calculate_unlocked(50).unwrap(), 0);
     }
 
     #[test]
     fn test_calculate_unlocked_linear_at_start() {
         let vesting =
-            MockVesting { total_amount: 1000, start_ts: 100, end_ts: 200, schedule_type: VestingScheduleType::Linear };
+            MockVesting { total_amount: 1000, schedule: VestingSchedule::Linear { start_ts: 100, end_ts: 200 } };
         assert_eq!(vesting.calculate_unlocked(100).unwrap(), 0);
     }
 
     #[test]
     fn test_calculate_unlocked_linear_midpoint() {
         let vesting =
-            MockVesting { total_amount: 1000, start_ts: 100, end_ts: 200, schedule_type: VestingScheduleType::Linear };
+            MockVesting { total_amount: 1000, schedule: VestingSchedule::Linear { start_ts: 100, end_ts: 200 } };
         assert_eq!(vesting.calculate_unlocked(150).unwrap(), 500);
     }
 
     #[test]
     fn test_calculate_unlocked_linear_at_end() {
         let vesting =
-            MockVesting { total_amount: 1000, start_ts: 100, end_ts: 200, schedule_type: VestingScheduleType::Linear };
+            MockVesting { total_amount: 1000, schedule: VestingSchedule::Linear { start_ts: 100, end_ts: 200 } };
         assert_eq!(vesting.calculate_unlocked(200).unwrap(), 1000);
     }
 
     #[test]
     fn test_calculate_unlocked_linear_after_end() {
         let vesting =
-            MockVesting { total_amount: 1000, start_ts: 100, end_ts: 200, schedule_type: VestingScheduleType::Linear };
+            MockVesting { total_amount: 1000, schedule: VestingSchedule::Linear { start_ts: 100, end_ts: 200 } };
         assert_eq!(vesting.calculate_unlocked(300).unwrap(), 1000);
     }
 
     #[test]
     fn test_calculate_unlocked_linear_quarter() {
         let vesting =
-            MockVesting { total_amount: 1000, start_ts: 0, end_ts: 100, schedule_type: VestingScheduleType::Linear };
+            MockVesting { total_amount: 1000, schedule: VestingSchedule::Linear { start_ts: 0, end_ts: 100 } };
         assert_eq!(vesting.calculate_unlocked(25).unwrap(), 250);
     }
 
     #[test]
     fn test_calculate_unlocked_immediate_before_start() {
-        let vesting = MockVesting {
-            total_amount: 1000,
-            start_ts: 100,
-            end_ts: 200,
-            schedule_type: VestingScheduleType::Immediate,
-        };
+        let vesting = MockVesting { total_amount: 1000, schedule: VestingSchedule::Immediate {} };
         assert_eq!(vesting.calculate_unlocked(50).unwrap(), 1000);
     }
 
     #[test]
     fn test_calculate_unlocked_immediate_at_start() {
-        let vesting = MockVesting {
-            total_amount: 1000,
-            start_ts: 100,
-            end_ts: 200,
-            schedule_type: VestingScheduleType::Immediate,
-        };
+        let vesting = MockVesting { total_amount: 1000, schedule: VestingSchedule::Immediate {} };
         assert_eq!(vesting.calculate_unlocked(100).unwrap(), 1000);
     }
 
     #[test]
     fn test_calculate_unlocked_immediate_midpoint() {
+        let vesting = MockVesting { total_amount: 1000, schedule: VestingSchedule::Immediate {} };
+        assert_eq!(vesting.calculate_unlocked(150).unwrap(), 1000);
+    }
+
+    #[test]
+    fn test_calculate_unlocked_cliff_before() {
+        let vesting = MockVesting { total_amount: 1000, schedule: VestingSchedule::Cliff { cliff_ts: 100 } };
+        assert_eq!(vesting.calculate_unlocked(50).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_calculate_unlocked_cliff_at() {
+        let vesting = MockVesting { total_amount: 1000, schedule: VestingSchedule::Cliff { cliff_ts: 100 } };
+        assert_eq!(vesting.calculate_unlocked(100).unwrap(), 1000);
+    }
+
+    #[test]
+    fn test_calculate_unlocked_cliff_linear_before_cliff() {
         let vesting = MockVesting {
             total_amount: 1000,
-            start_ts: 100,
-            end_ts: 200,
-            schedule_type: VestingScheduleType::Immediate,
+            schedule: VestingSchedule::CliffLinear { start_ts: 0, cliff_ts: 100, end_ts: 400 },
         };
-        assert_eq!(vesting.calculate_unlocked(150).unwrap(), 1000);
+        assert_eq!(vesting.calculate_unlocked(50).unwrap(), 0);
+    }
+
+    #[test]
+    fn test_calculate_unlocked_cliff_linear_at_cliff() {
+        let vesting = MockVesting {
+            total_amount: 1000,
+            schedule: VestingSchedule::CliffLinear { start_ts: 0, cliff_ts: 100, end_ts: 400 },
+        };
+        assert_eq!(vesting.calculate_unlocked(100).unwrap(), 250);
+    }
+
+    #[test]
+    fn test_calculate_unlocked_cliff_linear_at_end() {
+        let vesting = MockVesting {
+            total_amount: 1000,
+            schedule: VestingSchedule::CliffLinear { start_ts: 0, cliff_ts: 100, end_ts: 400 },
+        };
+        assert_eq!(vesting.calculate_unlocked(400).unwrap(), 1000);
     }
 }
