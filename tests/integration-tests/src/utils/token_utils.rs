@@ -6,13 +6,6 @@ use solana_sdk::{
     signature::{Keypair, Signer},
 };
 use spl_associated_token_account::{get_associated_token_address, get_associated_token_address_with_program_id};
-use spl_token_2022::{
-    extension::{
-        non_transferable::NonTransferable, pausable::PausableConfig, permanent_delegate::PermanentDelegate,
-        BaseStateWithExtensionsMut, ExtensionType, StateWithExtensionsMut,
-    },
-    state::Mint as Token2022Mint,
-};
 use spl_token_interface::state::{Account as TokenAccount, AccountState, Mint};
 
 use super::TestContext;
@@ -188,55 +181,5 @@ impl TestContext {
         } else {
             self.create_token_account_with_balance(owner, mint, amount)
         }
-    }
-
-    pub fn create_token_2022_mint_with_extension(
-        &mut self,
-        mint: &Keypair,
-        mint_authority: &Pubkey,
-        decimals: u8,
-        extension_type: ExtensionType,
-    ) {
-        let extensions = &[extension_type];
-        let space = ExtensionType::try_calculate_account_len::<Token2022Mint>(extensions).unwrap();
-
-        let mut data = vec![0u8; space];
-
-        let mut state = StateWithExtensionsMut::<Token2022Mint>::unpack_uninitialized(&mut data).unwrap();
-
-        state.base.mint_authority = COption::Some(*mint_authority);
-        state.base.supply = 0;
-        state.base.decimals = decimals;
-        state.base.is_initialized = true;
-        state.base.freeze_authority = COption::None;
-
-        state.pack_base();
-        state.init_account_type().unwrap();
-
-        match extension_type {
-            ExtensionType::PermanentDelegate => {
-                state.init_extension::<PermanentDelegate>(true).unwrap();
-            }
-            ExtensionType::NonTransferable => {
-                state.init_extension::<NonTransferable>(true).unwrap();
-            }
-            ExtensionType::Pausable => {
-                state.init_extension::<PausableConfig>(true).unwrap();
-            }
-            _ => panic!("Unsupported extension type for test helper"),
-        }
-
-        self.svm
-            .set_account(
-                mint.pubkey(),
-                Account {
-                    lamports: self.svm.minimum_balance_for_rent_exemption(space),
-                    data,
-                    owner: TOKEN_2022_PROGRAM_ID,
-                    executable: false,
-                    rent_epoch: 0,
-                },
-            )
-            .unwrap();
     }
 }

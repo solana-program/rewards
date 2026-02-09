@@ -19,7 +19,7 @@ fn test_close_merkle_distribution_distribution_not_writable() {
 }
 
 #[test]
-fn test_close_merkle_distribution_vault_not_writable() {
+fn test_close_merkle_distribution_distribution_vault_not_writable() {
     let mut ctx = TestContext::new();
     test_not_writable::<CloseMerkleDistributionFixture>(&mut ctx, 3);
 }
@@ -96,8 +96,8 @@ fn test_close_merkle_distribution_returns_tokens() {
 
     let setup = CloseMerkleDistributionSetup::builder(&mut ctx).amount(fund_amount).build();
 
-    let vault_balance = ctx.get_token_balance(&setup.vault);
-    assert_eq!(vault_balance, fund_amount, "Vault should have funded tokens");
+    let distribution_vault_balance = ctx.get_token_balance(&setup.distribution_vault);
+    assert_eq!(distribution_vault_balance, fund_amount, "Vault should have funded tokens");
 
     let authority_balance_before = ctx.get_token_balance(&setup.authority_token_account);
 
@@ -119,8 +119,8 @@ fn test_close_merkle_distribution_returns_tokens_token_2022() {
 
     let setup = CloseMerkleDistributionSetup::builder(&mut ctx).token_2022().amount(fund_amount).build();
 
-    let vault_balance = ctx.get_token_balance(&setup.vault);
-    assert_eq!(vault_balance, fund_amount, "Vault should have funded tokens");
+    let distribution_vault_balance = ctx.get_token_balance(&setup.distribution_vault);
+    assert_eq!(distribution_vault_balance, fund_amount, "Vault should have funded tokens");
 
     let authority_balance_before = ctx.get_token_balance(&setup.authority_token_account);
 
@@ -136,16 +136,16 @@ fn test_close_merkle_distribution_returns_tokens_token_2022() {
 }
 
 #[test]
-fn test_close_merkle_distribution_closes_vault() {
+fn test_close_merkle_distribution_closes_distribution_vault() {
     let mut ctx = TestContext::new();
     let setup = CloseMerkleDistributionSetup::new(&mut ctx);
 
-    // Verify vault exists before close
-    assert!(ctx.get_account(&setup.vault).is_some(), "Vault should exist before close");
+    // Verify distribution vault exists before close
+    assert!(ctx.get_account(&setup.distribution_vault).is_some(), "Distribution vault should exist before close");
 
     let test_ix = setup.build_instruction(&ctx);
     test_ix.send_expect_success(&mut ctx);
 
     // Vault should be closed
-    assert_account_closed(&ctx, &setup.vault);
+    assert_account_closed(&ctx, &setup.distribution_vault);
 }

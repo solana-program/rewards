@@ -47,7 +47,7 @@
             },
             {
               "kind": "structFieldTypeNode",
-              "name": "seeds",
+              "name": "seed",
               "type": {
                 "kind": "publicKeyTypeNode"
               }
@@ -228,7 +228,7 @@
             },
             {
               "kind": "structFieldTypeNode",
-              "name": "seeds",
+              "name": "seed",
               "type": {
                 "kind": "publicKeyTypeNode"
               }
@@ -488,7 +488,7 @@
             },
             {
               "kind": "structFieldTypeNode",
-              "name": "seeds",
+              "name": "seed",
               "type": {
                 "kind": "publicKeyTypeNode"
               }
@@ -520,17 +520,7 @@
               "kind": "enumStructVariantTypeNode",
               "name": "direct",
               "struct": {
-                "fields": [
-                  {
-                    "kind": "structFieldTypeNode",
-                    "name": "initialFunding",
-                    "type": {
-                      "endian": "le",
-                      "format": "u64",
-                      "kind": "numberTypeNode"
-                    }
-                  }
-                ],
+                "fields": [],
                 "kind": "structTypeNode"
               }
             },
@@ -685,128 +675,143 @@
       {
         "code": 10,
         "kind": "errorNode",
-        "message": "Mint has PermanentDelegate extension which is not allowed",
-        "name": "permanentDelegateNotAllowed"
-      },
-      {
-        "code": 11,
-        "kind": "errorNode",
-        "message": "Mint has NonTransferable extension which is not allowed",
-        "name": "nonTransferableNotAllowed"
-      },
-      {
-        "code": 12,
-        "kind": "errorNode",
-        "message": "Mint has Pausable extension which is not allowed",
-        "name": "pausableNotAllowed"
-      },
-      {
-        "code": 13,
-        "kind": "errorNode",
         "message": "Rent calculation failed",
         "name": "rentCalculationFailed"
       },
       {
-        "code": 14,
+        "code": 11,
         "kind": "errorNode",
         "message": "Requested claim amount exceeds available balance",
         "name": "exceedsClaimableAmount"
       },
       {
-        "code": 15,
+        "code": 12,
         "kind": "errorNode",
         "message": "Invalid merkle proof",
         "name": "invalidMerkleProof"
       },
       {
-        "code": 16,
+        "code": 13,
         "kind": "errorNode",
         "message": "Clawback timestamp not yet reached",
         "name": "clawbackNotReached"
       },
       {
-        "code": 17,
+        "code": 14,
         "kind": "errorNode",
         "message": "Claim has not been fully vested",
         "name": "claimNotFullyVested"
       },
       {
-        "code": 18,
+        "code": 15,
         "kind": "errorNode",
         "message": "Invalid cliff timestamp",
         "name": "invalidCliffTimestamp"
+      },
+      {
+        "code": 16,
+        "kind": "errorNode",
+        "message": "Claimed amount cannot decrease",
+        "name": "claimedAmountDecreased"
       }
     ],
     "instructions": [
       {
         "accounts": [
           {
+            "docs": [
+              "Pays for account creation"
+            ],
             "isSigner": true,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "payer"
           },
           {
+            "docs": [
+              "Distribution authority; stored on-chain"
+            ],
             "isSigner": true,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "authority"
           },
           {
+            "docs": [
+              "Arbitrary signer used as PDA seed for uniqueness"
+            ],
             "isSigner": true,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "seeds"
           },
           {
+            "docs": [
+              "PDA: [b\"direct_distribution\", mint, authority, seeds] (created)"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "distribution"
           },
           {
+            "docs": [
+              "SPL token mint"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "mint"
           },
           {
+            "docs": [
+              "ATA of distribution PDA for mint (created via CPI)"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
-            "name": "vault"
+            "name": "distributionVault"
           },
           {
-            "isSigner": false,
-            "isWritable": true,
-            "kind": "instructionAccountNode",
-            "name": "authorityTokenAccount"
-          },
-          {
+            "docs": [
+              "System program"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "systemProgram"
           },
           {
+            "docs": [
+              "SPL Token or Token-2022 program"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "tokenProgram"
           },
           {
+            "docs": [
+              "Associated Token Account program"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "associatedTokenProgram"
           },
           {
+            "docs": [
+              "PDA: [b\"__event_authority\"] for event CPI"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "eventAuthority"
           },
           {
+            "docs": [
+              "This program's ID (for event CPI)"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
@@ -836,15 +841,6 @@
               "format": "u8",
               "kind": "numberTypeNode"
             }
-          },
-          {
-            "kind": "instructionArgumentNode",
-            "name": "amount",
-            "type": {
-              "endian": "le",
-              "format": "u64",
-              "kind": "numberTypeNode"
-            }
           }
         ],
         "discriminators": [
@@ -860,66 +856,108 @@
       {
         "accounts": [
           {
+            "docs": [
+              "Pays for recipient PDA creation"
+            ],
             "isSigner": true,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "payer"
           },
           {
+            "docs": [
+              "Distribution authority; must match distribution.authority"
+            ],
             "isSigner": true,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "authority"
           },
           {
+            "docs": [
+              "PDA: DirectDistribution account"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "distribution"
           },
           {
+            "docs": [
+              "PDA: [b\"direct_recipient\", distribution, recipient] (created)"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "recipientAccount"
           },
           {
+            "docs": [
+              "Wallet address of the recipient (used as PDA seed)"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "recipient"
           },
           {
+            "docs": [
+              "SPL token mint; must match distribution.mint"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "mint"
           },
           {
+            "docs": [
+              "ATA of distribution PDA for mint; receives transferred tokens"
+            ],
             "isSigner": false,
-            "isWritable": false,
+            "isWritable": true,
             "kind": "instructionAccountNode",
-            "name": "vault"
+            "name": "distributionVault"
           },
           {
+            "docs": [
+              "Authority's token account; source of tokens for this recipient's allocation"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "authorityTokenAccount"
+          },
+          {
+            "docs": [
+              "System program"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "systemProgram"
           },
           {
+            "docs": [
+              "SPL Token or Token-2022 program"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "tokenProgram"
           },
           {
+            "docs": [
+              "PDA: [b\"__event_authority\"] for event CPI"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "eventAuthority"
           },
           {
+            "docs": [
+              "This program's ID"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
@@ -981,54 +1019,81 @@
       {
         "accounts": [
           {
+            "docs": [
+              "Wallet address of the claiming recipient; must match recipient_account.recipient"
+            ],
             "isSigner": true,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "recipient"
           },
           {
+            "docs": [
+              "PDA: DirectDistribution account"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "distribution"
           },
           {
+            "docs": [
+              "PDA: [b\"direct_recipient\", distribution, recipient]"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "recipientAccount"
           },
           {
+            "docs": [
+              "SPL token mint"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "mint"
           },
           {
+            "docs": [
+              "ATA of distribution PDA for mint; source of claimed tokens"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
-            "name": "vault"
+            "name": "distributionVault"
           },
           {
+            "docs": [
+              "Recipient's token account; destination for claimed tokens"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "recipientTokenAccount"
           },
           {
+            "docs": [
+              "SPL Token or Token-2022 program"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "tokenProgram"
           },
           {
+            "docs": [
+              "PDA: [b\"__event_authority\"] for event CPI"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "eventAuthority"
           },
           {
+            "docs": [
+              "This program's ID"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
@@ -1073,48 +1138,72 @@
       {
         "accounts": [
           {
+            "docs": [
+              "Distribution authority; receives rent + remaining distribution vault tokens"
+            ],
             "isSigner": true,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "authority"
           },
           {
+            "docs": [
+              "PDA: DirectDistribution account (closed)"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "distribution"
           },
           {
+            "docs": [
+              "SPL token mint"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "mint"
           },
           {
+            "docs": [
+              "ATA of distribution PDA for mint; remaining tokens returned to authority"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
-            "name": "vault"
+            "name": "distributionVault"
           },
           {
+            "docs": [
+              "Authority's token account; destination for remaining tokens"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "authorityTokenAccount"
           },
           {
+            "docs": [
+              "SPL Token or Token-2022 program"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "tokenProgram"
           },
           {
+            "docs": [
+              "PDA: [b\"__event_authority\"] for event CPI"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "eventAuthority"
           },
           {
+            "docs": [
+              "This program's ID"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
@@ -1150,36 +1239,54 @@
       {
         "accounts": [
           {
+            "docs": [
+              "Wallet address of the recipient; must match recipient_account.recipient"
+            ],
             "isSigner": true,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "recipient"
           },
           {
+            "docs": [
+              "Original payer of recipient PDA; receives rent refund"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
-            "name": "payer"
+            "name": "originalPayer"
           },
           {
+            "docs": [
+              "PDA: DirectDistribution account; must be closed (owner = system program) or fully claimed"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "distribution"
           },
           {
+            "docs": [
+              "PDA: [b\"direct_recipient\", distribution, recipient] (closed)"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "recipientAccount"
           },
           {
+            "docs": [
+              "PDA: [b\"__event_authority\"] for event CPI"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "eventAuthority"
           },
           {
+            "docs": [
+              "This program's ID"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
@@ -1215,72 +1322,108 @@
       {
         "accounts": [
           {
+            "docs": [
+              "Pays for account creation and token transfer"
+            ],
             "isSigner": true,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "payer"
           },
           {
+            "docs": [
+              "Distribution authority; stored on-chain"
+            ],
             "isSigner": true,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "authority"
           },
           {
+            "docs": [
+              "Arbitrary signer used as PDA seed for uniqueness"
+            ],
             "isSigner": true,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "seeds"
           },
           {
+            "docs": [
+              "PDA: [b\"merkle_distribution\", mint, authority, seeds] (created)"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "distribution"
           },
           {
+            "docs": [
+              "SPL token mint"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "mint"
           },
           {
+            "docs": [
+              "ATA of distribution PDA for mint (created via CPI)"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
-            "name": "vault"
+            "name": "distributionVault"
           },
           {
+            "docs": [
+              "Authority's token account; source of initial funding"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "authorityTokenAccount"
           },
           {
+            "docs": [
+              "System program"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "systemProgram"
           },
           {
+            "docs": [
+              "SPL Token or Token-2022 program"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "tokenProgram"
           },
           {
+            "docs": [
+              "Associated Token Account program"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "associatedTokenProgram"
           },
           {
+            "docs": [
+              "PDA: [b\"__event_authority\"] for event CPI"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "eventAuthority"
           },
           {
+            "docs": [
+              "This program's ID"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
@@ -1368,66 +1511,99 @@
       {
         "accounts": [
           {
+            "docs": [
+              "Pays for claim PDA creation (if first claim)"
+            ],
             "isSigner": true,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "payer"
           },
           {
+            "docs": [
+              "Wallet address of the claimant; proven via merkle proof"
+            ],
             "isSigner": true,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "claimant"
           },
           {
+            "docs": [
+              "PDA: MerkleDistribution account"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "distribution"
           },
           {
+            "docs": [
+              "PDA: [b\"merkle_claim\", distribution, claimant] (created or updated)"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "claimAccount"
           },
           {
+            "docs": [
+              "SPL token mint"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "mint"
           },
           {
+            "docs": [
+              "ATA of distribution PDA for mint; source of claimed tokens"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
-            "name": "vault"
+            "name": "distributionVault"
           },
           {
+            "docs": [
+              "Claimant's token account; destination for claimed tokens"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "claimantTokenAccount"
           },
           {
+            "docs": [
+              "System program"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "systemProgram"
           },
           {
+            "docs": [
+              "SPL Token or Token-2022 program"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "tokenProgram"
           },
           {
+            "docs": [
+              "PDA: [b\"__event_authority\"] for event CPI"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "eventAuthority"
           },
           {
+            "docs": [
+              "This program's ID"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
@@ -1525,30 +1701,45 @@
       {
         "accounts": [
           {
+            "docs": [
+              "Wallet address of the claimant; receives rent refund"
+            ],
             "isSigner": true,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "claimant"
           },
           {
+            "docs": [
+              "PDA: MerkleDistribution account; must be closed (owner = system program)"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "distribution"
           },
           {
+            "docs": [
+              "PDA: [b\"merkle_claim\", distribution, claimant] (closed)"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "claimAccount"
           },
           {
+            "docs": [
+              "PDA: [b\"__event_authority\"] for event CPI"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "eventAuthority"
           },
           {
+            "docs": [
+              "This program's ID"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
@@ -1584,48 +1775,72 @@
       {
         "accounts": [
           {
+            "docs": [
+              "Distribution authority; receives rent + remaining distribution vault tokens"
+            ],
             "isSigner": true,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "authority"
           },
           {
+            "docs": [
+              "PDA: MerkleDistribution account (closed)"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "distribution"
           },
           {
+            "docs": [
+              "SPL token mint"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "mint"
           },
           {
+            "docs": [
+              "ATA of distribution PDA for mint; remaining tokens returned to authority"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
-            "name": "vault"
+            "name": "distributionVault"
           },
           {
+            "docs": [
+              "Authority's token account; destination for remaining tokens"
+            ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "authorityTokenAccount"
           },
           {
+            "docs": [
+              "SPL Token or Token-2022 program"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "tokenProgram"
           },
           {
+            "docs": [
+              "PDA: [b\"__event_authority\"] for event CPI"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "eventAuthority"
           },
           {
+            "docs": [
+              "This program's ID"
+            ],
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
@@ -1661,6 +1876,9 @@
       {
         "accounts": [
           {
+            "docs": [
+              "PDA: [b\"__event_authority\"]; validates CPI caller"
+            ],
             "isSigner": true,
             "isWritable": false,
             "kind": "instructionAccountNode",

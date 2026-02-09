@@ -14,7 +14,7 @@ use crate::utils::{
 
 pub struct CloseDirectRecipientSetup {
     pub recipient: Keypair,
-    pub payer: Keypair,
+    pub original_payer: Keypair,
     pub distribution_pda: Pubkey,
     pub recipient_pda: Pubkey,
     pub token_program: Pubkey,
@@ -39,7 +39,7 @@ impl CloseDirectRecipientSetup {
         let mut builder = CloseDirectRecipientBuilder::new();
         builder
             .recipient(self.recipient.pubkey())
-            .payer(self.payer.pubkey())
+            .original_payer(self.original_payer.pubkey())
             .distribution(self.distribution_pda)
             .recipient_account(self.recipient_pda)
             .event_authority(event_authority);
@@ -62,7 +62,7 @@ impl CloseDirectRecipientSetup {
         let mut builder = CloseDirectRecipientBuilder::new();
         builder
             .recipient(wrong_recipient.pubkey())
-            .payer(self.payer.pubkey())
+            .original_payer(self.original_payer.pubkey())
             .distribution(self.distribution_pda)
             .recipient_account(wrong_recipient_pda)
             .event_authority(event_authority);
@@ -74,13 +74,17 @@ impl CloseDirectRecipientSetup {
         }
     }
 
-    pub fn build_instruction_with_wrong_payer(&self, _ctx: &TestContext, wrong_payer: Pubkey) -> TestInstruction {
+    pub fn build_instruction_with_wrong_original_payer(
+        &self,
+        _ctx: &TestContext,
+        wrong_payer: Pubkey,
+    ) -> TestInstruction {
         let (event_authority, _) = find_event_authority_pda();
 
         let mut builder = CloseDirectRecipientBuilder::new();
         builder
             .recipient(self.recipient.pubkey())
-            .payer(wrong_payer)
+            .original_payer(wrong_payer)
             .distribution(self.distribution_pda)
             .recipient_account(self.recipient_pda)
             .event_authority(event_authority);
@@ -115,10 +119,8 @@ impl<'a> CloseDirectRecipientSetupBuilder<'a> {
     }
 
     pub fn build(self) -> CloseDirectRecipientSetup {
-        let distribution_setup = CreateDirectDistributionSetup::builder(self.ctx)
-            .amount(self.amount * 2)
-            .token_program(self.token_program)
-            .build();
+        let distribution_setup =
+            CreateDirectDistributionSetup::builder(self.ctx).token_program(self.token_program).build();
         let create_ix = distribution_setup.build_instruction(self.ctx);
         create_ix.send_expect_success(self.ctx);
 
@@ -127,6 +129,13 @@ impl<'a> CloseDirectRecipientSetupBuilder<'a> {
         let rent_payer = self.ctx.create_funded_keypair();
         let (recipient_pda, recipient_bump) =
             find_direct_recipient_pda(&distribution_setup.distribution_pda, &recipient.pubkey());
+
+        let authority_token_account = self.ctx.create_ata_for_program_with_balance(
+            &distribution_setup.authority.pubkey(),
+            &distribution_setup.mint.pubkey(),
+            self.amount,
+            &self.token_program,
+        );
 
         // Build add_direct_recipient instruction with a dedicated payer (not ctx.payer)
         let (event_authority, _) = find_event_authority_pda();
@@ -138,7 +147,8 @@ impl<'a> CloseDirectRecipientSetupBuilder<'a> {
             .recipient_account(recipient_pda)
             .recipient(recipient.pubkey())
             .mint(distribution_setup.mint.pubkey())
-            .vault(distribution_setup.vault)
+            .distribution_vault(distribution_setup.distribution_vault)
+            .authority_token_account(authority_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
             .bump(recipient_bump)
@@ -165,7 +175,7 @@ impl<'a> CloseDirectRecipientSetupBuilder<'a> {
             recipient_pda,
             recipient_bump,
             mint: distribution_setup.mint.pubkey(),
-            vault: distribution_setup.vault,
+            distribution_vault: distribution_setup.distribution_vault,
             recipient_token_account,
             token_program: self.token_program,
             amount: self.amount,
@@ -177,7 +187,7 @@ impl<'a> CloseDirectRecipientSetupBuilder<'a> {
 
         CloseDirectRecipientSetup {
             recipient,
-            payer: rent_payer,
+            original_payer: rent_payer,
             distribution_pda: distribution_setup.distribution_pda,
             recipient_pda,
             token_program: self.token_program,
@@ -202,7 +212,7 @@ impl InstructionTestFixture for CloseDirectRecipientFixture {
     }
 
     /// Account indices that must be writable:
-    /// 1: payer
+    /// 1: original_payer
     /// 3: recipient_account
     fn required_writable() -> &'static [usize] {
         &[1, 3]

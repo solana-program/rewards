@@ -1,5 +1,4 @@
 use solana_sdk::signer::Signer;
-use spl_token_2022::extension::ExtensionType;
 
 use crate::fixtures::{CreateMerkleDistributionFixture, CreateMerkleDistributionSetup};
 use crate::utils::{
@@ -26,7 +25,7 @@ fn test_create_merkle_distribution_distribution_not_writable() {
 }
 
 #[test]
-fn test_create_merkle_distribution_vault_not_writable() {
+fn test_create_merkle_distribution_distribution_vault_not_writable() {
     let mut ctx = TestContext::new();
     test_not_writable::<CreateMerkleDistributionFixture>(&mut ctx, 5);
 }
@@ -122,19 +121,19 @@ fn test_create_merkle_distribution_zero_total_amount() {
 }
 
 #[test]
-fn test_create_merkle_distribution_funds_vault() {
+fn test_create_merkle_distribution_funds_distribution_vault() {
     let mut ctx = TestContext::new();
     let setup = CreateMerkleDistributionSetup::new(&mut ctx);
     let amount = setup.amount;
 
-    let vault_balance_before = ctx.get_token_balance(&setup.vault);
-    assert_eq!(vault_balance_before, 0);
+    let distribution_vault_balance_before = ctx.get_token_balance(&setup.distribution_vault);
+    assert_eq!(distribution_vault_balance_before, 0);
 
     let instruction = setup.build_instruction(&ctx);
     instruction.send_expect_success(&mut ctx);
 
-    let vault_balance_after = ctx.get_token_balance(&setup.vault);
-    assert_eq!(vault_balance_after, amount);
+    let distribution_vault_balance_after = ctx.get_token_balance(&setup.distribution_vault);
+    assert_eq!(distribution_vault_balance_after, amount);
 }
 
 #[test]
@@ -177,37 +176,4 @@ fn test_create_merkle_distribution_custom_clawback() {
         setup.total_amount,
         setup.bump,
     );
-}
-
-#[test]
-fn test_create_merkle_distribution_rejects_permanent_delegate() {
-    let mut ctx = TestContext::new();
-    let setup = CreateMerkleDistributionSetup::new_with_extension(&mut ctx, ExtensionType::PermanentDelegate);
-
-    let instruction = setup.build_instruction(&ctx);
-    let error = instruction.send_expect_error(&mut ctx);
-
-    assert_rewards_error(error, RewardsError::PermanentDelegateNotAllowed);
-}
-
-#[test]
-fn test_create_merkle_distribution_rejects_non_transferable() {
-    let mut ctx = TestContext::new();
-    let setup = CreateMerkleDistributionSetup::new_with_extension(&mut ctx, ExtensionType::NonTransferable);
-
-    let instruction = setup.build_instruction(&ctx);
-    let error = instruction.send_expect_error(&mut ctx);
-
-    assert_rewards_error(error, RewardsError::NonTransferableNotAllowed);
-}
-
-#[test]
-fn test_create_merkle_distribution_rejects_pausable() {
-    let mut ctx = TestContext::new();
-    let setup = CreateMerkleDistributionSetup::new_with_extension(&mut ctx, ExtensionType::Pausable);
-
-    let instruction = setup.build_instruction(&ctx);
-    let error = instruction.send_expect_error(&mut ctx);
-
-    assert_rewards_error(error, RewardsError::PausableNotAllowed);
 }

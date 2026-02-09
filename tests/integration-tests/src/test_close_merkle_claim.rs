@@ -121,7 +121,7 @@ fn test_close_merkle_claim_returns_rent() {
         authority: claim_setup.authority.insecure_clone(),
         distribution_pda: claim_setup.distribution_pda,
         mint: claim_setup.mint,
-        vault: claim_setup.vault,
+        distribution_vault: claim_setup.distribution_vault,
         authority_token_account: ctx.create_token_account(&claim_setup.authority.pubkey(), &claim_setup.mint),
         token_program: claim_setup.token_program,
         funded_amount: 0,

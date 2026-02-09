@@ -15,9 +15,7 @@ pub use close_direct_distribution::{CloseDirectDistributionFixture, CloseDirectD
 pub use close_direct_recipient::{CloseDirectRecipientFixture, CloseDirectRecipientSetup};
 pub use close_merkle_claim::{CloseMerkleClaimFixture, CloseMerkleClaimSetup};
 pub use close_merkle_distribution::{CloseMerkleDistributionFixture, CloseMerkleDistributionSetup};
-pub use create_direct_distribution::{
-    CreateDirectDistributionFixture, CreateDirectDistributionSetup, DEFAULT_DISTRIBUTION_AMOUNT,
-};
+pub use create_direct_distribution::{CreateDirectDistributionFixture, CreateDirectDistributionSetup};
 pub use create_merkle_distribution::{
     CreateMerkleDistributionFixture, CreateMerkleDistributionSetup, DEFAULT_MERKLE_DISTRIBUTION_AMOUNT,
 };

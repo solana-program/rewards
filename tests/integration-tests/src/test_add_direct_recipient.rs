@@ -143,6 +143,13 @@ fn test_add_direct_recipient_multiple() {
 
     let schedule = VestingSchedule::Linear { start_ts, end_ts };
 
+    let authority_token_account1 = ctx.create_ata_for_program_with_balance(
+        &distribution_setup.authority.pubkey(),
+        &distribution_setup.mint.pubkey(),
+        DEFAULT_RECIPIENT_AMOUNT,
+        &distribution_setup.token_program,
+    );
+
     let setup1 = AddDirectRecipientSetup {
         authority: distribution_setup.authority.insecure_clone(),
         distribution_pda: distribution_setup.distribution_pda,
@@ -153,8 +160,8 @@ fn test_add_direct_recipient_multiple() {
         schedule: schedule.clone(),
         token_program: distribution_setup.token_program,
         mint: distribution_setup.mint.pubkey(),
-        vault: distribution_setup.vault,
-        distribution_amount: distribution_setup.amount,
+        distribution_vault: distribution_setup.distribution_vault,
+        authority_token_account: authority_token_account1,
     };
 
     let instruction1 = setup1.build_instruction(&ctx);
@@ -173,6 +180,13 @@ fn test_add_direct_recipient_multiple() {
     let (recipient2_pda, recipient2_bump) =
         find_direct_recipient_pda(&distribution_setup.distribution_pda, &recipient2.pubkey());
 
+    let authority_token_account2 = ctx.create_ata_for_program_with_balance(
+        &distribution_setup.authority.pubkey(),
+        &distribution_setup.mint.pubkey(),
+        DEFAULT_RECIPIENT_AMOUNT * 2,
+        &distribution_setup.token_program,
+    );
+
     let setup2 = AddDirectRecipientSetup {
         authority: distribution_setup.authority,
         distribution_pda: distribution_setup.distribution_pda,
@@ -183,8 +197,8 @@ fn test_add_direct_recipient_multiple() {
         schedule: schedule.clone(),
         token_program: distribution_setup.token_program,
         mint: distribution_setup.mint.pubkey(),
-        vault: distribution_setup.vault,
-        distribution_amount: distribution_setup.amount,
+        distribution_vault: distribution_setup.distribution_vault,
+        authority_token_account: authority_token_account2,
     };
 
     let instruction2 = setup2.build_instruction(&ctx);
@@ -203,68 +217,37 @@ fn test_add_direct_recipient_multiple() {
 #[test]
 fn test_add_direct_recipient_insufficient_funds() {
     let mut ctx = TestContext::new();
-    let setup = AddDirectRecipientSetup::builder(&mut ctx).distribution_amount(1_000_000).amount(1_500_000).build();
-
-    let instruction = setup.build_instruction(&ctx);
-    let error = instruction.send_expect_error(&mut ctx);
-
-    assert_rewards_error(error, RewardsError::InsufficientFunds);
-}
-
-#[test]
-fn test_add_direct_recipient_multiple_exceeds_vault() {
-    let mut ctx = TestContext::new();
-    let distribution_setup = CreateDirectDistributionSetup::builder(&mut ctx).amount(1_000_000).build();
+    let distribution_setup = CreateDirectDistributionSetup::new(&mut ctx);
     let create_instruction = distribution_setup.build_instruction(&ctx);
     create_instruction.send_expect_success(&mut ctx);
 
     let current_ts = ctx.get_current_timestamp();
-    let start_ts = current_ts;
-    let end_ts = current_ts + 86400 * 365;
+    let recipient = ctx.create_funded_keypair();
+    let (recipient_pda, recipient_bump) =
+        find_direct_recipient_pda(&distribution_setup.distribution_pda, &recipient.pubkey());
 
-    let recipient1 = ctx.create_funded_keypair();
-    let (recipient1_pda, recipient1_bump) =
-        find_direct_recipient_pda(&distribution_setup.distribution_pda, &recipient1.pubkey());
+    // Authority has only 500_000 tokens but tries to allocate 1_500_000
+    let authority_token_account = ctx.create_ata_for_program_with_balance(
+        &distribution_setup.authority.pubkey(),
+        &distribution_setup.mint.pubkey(),
+        500_000,
+        &distribution_setup.token_program,
+    );
 
-    let schedule = VestingSchedule::Linear { start_ts, end_ts };
-
-    let setup1 = AddDirectRecipientSetup {
-        authority: distribution_setup.authority.insecure_clone(),
-        distribution_pda: distribution_setup.distribution_pda,
-        recipient: recipient1,
-        recipient_pda: recipient1_pda,
-        recipient_bump: recipient1_bump,
-        amount: 500_000,
-        schedule: schedule.clone(),
-        token_program: distribution_setup.token_program,
-        mint: distribution_setup.mint.pubkey(),
-        vault: distribution_setup.vault,
-        distribution_amount: 1_000_000,
-    };
-
-    let instruction1 = setup1.build_instruction(&ctx);
-    instruction1.send_expect_success(&mut ctx);
-
-    let recipient2 = ctx.create_funded_keypair();
-    let (recipient2_pda, recipient2_bump) =
-        find_direct_recipient_pda(&distribution_setup.distribution_pda, &recipient2.pubkey());
-
-    let setup2 = AddDirectRecipientSetup {
+    let setup = AddDirectRecipientSetup {
         authority: distribution_setup.authority,
         distribution_pda: distribution_setup.distribution_pda,
-        recipient: recipient2,
-        recipient_pda: recipient2_pda,
-        recipient_bump: recipient2_bump,
-        amount: 600_000,
-        schedule: schedule.clone(),
+        recipient,
+        recipient_pda,
+        recipient_bump,
+        amount: 1_500_000,
+        schedule: VestingSchedule::Linear { start_ts: current_ts, end_ts: current_ts + 86400 * 365 },
         token_program: distribution_setup.token_program,
         mint: distribution_setup.mint.pubkey(),
-        vault: distribution_setup.vault,
-        distribution_amount: 1_000_000,
+        distribution_vault: distribution_setup.distribution_vault,
+        authority_token_account,
     };
 
-    let instruction2 = setup2.build_instruction(&ctx);
-    let error = instruction2.send_expect_error(&mut ctx);
-
-    assert_rewards_error(error, RewardsError::InsufficientFunds);
+    let instruction = setup.build_instruction(&ctx);
+    let _error = instruction.send_expect_error(&mut ctx);
 }

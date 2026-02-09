@@ -15,7 +15,8 @@
 **/dist/
 
 # AI
-.claude/
+.claude/*
+!.claude/commands/
 
 # Solana Test Validator
 **/test-ledger

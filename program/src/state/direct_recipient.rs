@@ -128,8 +128,12 @@ impl ClaimTracker for DirectRecipient {
     }
 
     #[inline(always)]
-    fn set_claimed_amount(&mut self, amount: u64) {
+    fn set_claimed_amount(&mut self, amount: u64) -> Result<(), ProgramError> {
+        if amount < self.claimed_amount {
+            return Err(RewardsProgramError::ClaimedAmountDecreased.into());
+        }
         self.claimed_amount = amount;
+        Ok(())
     }
 }
 
@@ -415,7 +419,15 @@ mod tests {
     fn test_claim_tracker_trait() {
         let mut recipient = create_test_recipient();
         assert_eq!(ClaimTracker::claimed_amount(&recipient), 0);
-        ClaimTracker::set_claimed_amount(&mut recipient, 500);
+        ClaimTracker::set_claimed_amount(&mut recipient, 500).unwrap();
+        assert_eq!(ClaimTracker::claimed_amount(&recipient), 500);
+    }
+
+    #[test]
+    fn test_set_claimed_amount_rejects_decrease() {
+        let mut recipient = create_test_recipient();
+        ClaimTracker::set_claimed_amount(&mut recipient, 500).unwrap();
+        assert!(ClaimTracker::set_claimed_amount(&mut recipient, 400).is_err());
         assert_eq!(ClaimTracker::claimed_amount(&recipient), 500);
     }
 

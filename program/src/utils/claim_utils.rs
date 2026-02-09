@@ -7,9 +7,9 @@ use super::get_mint_decimals;
 
 /// Context for claim transfer operations.
 ///
-/// Groups the accounts needed for transferring tokens from vault to recipient.
+/// Groups the accounts needed for transferring tokens from distribution_vault to recipient.
 pub struct ClaimTransferContext<'a> {
-    pub vault: &'a AccountView,
+    pub distribution_vault: &'a AccountView,
     pub mint: &'a AccountView,
     pub destination: &'a AccountView,
     pub distribution_account: &'a AccountView,
@@ -40,14 +40,14 @@ pub fn resolve_claim_amount(requested: u64, claimable: u64) -> Result<u64, Progr
     }
 }
 
-/// Transfers tokens from distribution vault to recipient using the distribution as signer.
+/// Transfers tokens from the distribution vault to recipient using the distribution as signer.
 ///
 /// # Arguments
 /// * `distribution` - The distribution that owns the vault (implements DistributionSigner)
 /// * `ctx` - Transfer context containing all required accounts
 /// * `amount` - Amount to transfer
 #[inline(always)]
-pub fn transfer_from_vault<D: DistributionSigner>(
+pub fn transfer_from_distribution_vault<D: DistributionSigner>(
     distribution: &D,
     ctx: &ClaimTransferContext,
     amount: u64,
@@ -56,7 +56,7 @@ pub fn transfer_from_vault<D: DistributionSigner>(
 
     distribution.with_signer(|signers| {
         TransferChecked {
-            from: ctx.vault,
+            from: ctx.distribution_vault,
             mint: ctx.mint,
             to: ctx.destination,
             authority: ctx.distribution_account,

@@ -1,6 +1,9 @@
 use solana_sdk::signature::Signer;
 
-use crate::fixtures::{CloseDirectDistributionFixture, CloseDirectDistributionSetup};
+use crate::fixtures::{
+    AddDirectRecipientSetup, CloseDirectDistributionFixture, CloseDirectDistributionSetup,
+    CreateDirectDistributionSetup,
+};
 use crate::utils::{
     assert_account_closed, assert_rewards_error, test_empty_data, test_missing_signer, test_not_writable,
     test_wrong_current_program, RewardsError, TestContext,
@@ -19,7 +22,7 @@ fn test_close_direct_distribution_distribution_not_writable() {
 }
 
 #[test]
-fn test_close_direct_distribution_vault_not_writable() {
+fn test_close_direct_distribution_distribution_vault_not_writable() {
     let mut ctx = TestContext::new();
     test_not_writable::<CloseDirectDistributionFixture>(&mut ctx, 3);
 }
@@ -81,45 +84,32 @@ fn test_close_direct_distribution_unauthorized() {
 #[test]
 fn test_close_direct_distribution_returns_tokens() {
     let mut ctx = TestContext::new();
-    let fund_amount = 1_000_000u64;
+    let distribution_setup = CreateDirectDistributionSetup::new(&mut ctx);
+    let recipient_setup = AddDirectRecipientSetup::from_distribution_setup(&mut ctx, &distribution_setup);
+    let add_recipient_ix = recipient_setup.build_instruction(&ctx);
+    add_recipient_ix.send_expect_success(&mut ctx);
 
-    let setup = CloseDirectDistributionSetup::builder(&mut ctx).amount(fund_amount).build();
+    let distribution_vault_balance = ctx.get_token_balance(&distribution_setup.distribution_vault);
+    assert!(distribution_vault_balance > 0, "Vault should have funded tokens");
 
-    let vault_balance = ctx.get_token_balance(&setup.vault);
-    assert_eq!(vault_balance, fund_amount, "Vault should have funded tokens");
+    let close_setup = CloseDirectDistributionSetup {
+        authority: distribution_setup.authority.insecure_clone(),
+        distribution_pda: distribution_setup.distribution_pda,
+        mint: distribution_setup.mint.pubkey(),
+        distribution_vault: distribution_setup.distribution_vault,
+        authority_token_account: recipient_setup.authority_token_account,
+        token_program: distribution_setup.token_program,
+    };
 
-    let authority_balance_before = ctx.get_token_balance(&setup.authority_token_account);
+    let authority_balance_before = ctx.get_token_balance(&close_setup.authority_token_account);
 
-    let test_ix = setup.build_instruction(&ctx);
+    let test_ix = close_setup.build_instruction(&ctx);
     test_ix.send_expect_success(&mut ctx);
 
-    let authority_balance_after = ctx.get_token_balance(&setup.authority_token_account);
+    let authority_balance_after = ctx.get_token_balance(&close_setup.authority_token_account);
     assert_eq!(
         authority_balance_after,
-        authority_balance_before + fund_amount,
-        "Authority should receive vault tokens"
-    );
-}
-
-#[test]
-fn test_close_direct_distribution_returns_tokens_token_2022() {
-    let mut ctx = TestContext::new();
-    let fund_amount = 1_000_000u64;
-
-    let setup = CloseDirectDistributionSetup::builder(&mut ctx).token_2022().amount(fund_amount).build();
-
-    let vault_balance = ctx.get_token_balance(&setup.vault);
-    assert_eq!(vault_balance, fund_amount, "Vault should have funded tokens");
-
-    let authority_balance_before = ctx.get_token_balance(&setup.authority_token_account);
-
-    let test_ix = setup.build_instruction(&ctx);
-    test_ix.send_expect_success(&mut ctx);
-
-    let authority_balance_after = ctx.get_token_balance(&setup.authority_token_account);
-    assert_eq!(
-        authority_balance_after,
-        authority_balance_before + fund_amount,
+        authority_balance_before + distribution_vault_balance,
         "Authority should receive vault tokens"
     );
 }

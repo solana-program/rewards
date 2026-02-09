@@ -112,7 +112,7 @@ impl<'a> CloseMerkleClaimSetupBuilder<'a> {
             authority: claim_setup.authority.insecure_clone(),
             distribution_pda: claim_setup.distribution_pda,
             mint: claim_setup.mint,
-            vault: claim_setup.vault,
+            distribution_vault: claim_setup.distribution_vault,
             authority_token_account: if self.token_program == TOKEN_2022_PROGRAM_ID {
                 self.ctx.create_token_2022_account(&claim_setup.authority.pubkey(), &claim_setup.mint)
             } else {

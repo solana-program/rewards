@@ -22,7 +22,7 @@ pub trait Distribution: AccountParse + AccountSerialize + PdaAccount {
     fn total_claimed(&self) -> u64;
 
     /// Sets the total claimed amount
-    fn set_total_claimed(&mut self, amount: u64);
+    fn set_total_claimed(&mut self, amount: u64) -> Result<(), ProgramError>;
 
     /// Validates that the provided authority matches the distribution's authority
     #[inline(always)]
@@ -37,7 +37,7 @@ pub trait Distribution: AccountParse + AccountSerialize + PdaAccount {
     #[inline(always)]
     fn add_claimed(&mut self, amount: u64) -> Result<(), ProgramError> {
         let new_total = self.total_claimed().checked_add(amount).ok_or(RewardsProgramError::MathOverflow)?;
-        self.set_total_claimed(new_total);
+        self.set_total_claimed(new_total)?;
         Ok(())
     }
 }
@@ -45,7 +45,7 @@ pub trait Distribution: AccountParse + AccountSerialize + PdaAccount {
 /// Extension trait for distributions that can sign CPIs.
 ///
 /// Distributions are PDAs that can sign cross-program invocations
-/// (e.g., token transfers from vault).
+/// (e.g., token transfers from the distribution vault).
 pub trait DistributionSigner: Distribution {
     /// Executes a closure with the distribution's PDA signer seeds.
     fn with_signer<F, R>(&self, f: F) -> R

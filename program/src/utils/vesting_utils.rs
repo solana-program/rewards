@@ -182,8 +182,10 @@ fn calculate_linear_unlock(
         return Ok(total_amount);
     }
 
-    let elapsed = current_ts.checked_sub(start_ts).ok_or(RewardsProgramError::MathOverflow)? as u64;
-    let duration = end_ts.checked_sub(start_ts).ok_or(RewardsProgramError::MathOverflow)? as u64;
+    let elapsed = u64::try_from(current_ts.checked_sub(start_ts).ok_or(RewardsProgramError::MathOverflow)?)
+        .map_err(|_| RewardsProgramError::MathOverflow)?;
+    let duration = u64::try_from(end_ts.checked_sub(start_ts).ok_or(RewardsProgramError::MathOverflow)?)
+        .map_err(|_| RewardsProgramError::MathOverflow)?;
 
     if duration == 0 {
         return Ok(total_amount);
@@ -199,7 +201,7 @@ fn calculate_linear_unlock(
         .checked_div(duration_128)
         .ok_or(RewardsProgramError::MathOverflow)?;
 
-    Ok(result as u64)
+    Ok(u64::try_from(result).map_err(|_| RewardsProgramError::MathOverflow)?)
 }
 
 #[cfg(test)]

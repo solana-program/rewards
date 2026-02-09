@@ -2,12 +2,17 @@ use pinocchio::{account::AccountView, entrypoint, error::ProgramError, Address, 
 
 use crate::{
     instructions::{
-        add_direct_recipient::process_add_direct_recipient, claim_direct::process_claim_direct,
-        claim_merkle::process_claim_merkle, close_direct_distribution::process_close_direct_distribution,
-        close_direct_recipient::process_close_direct_recipient, close_merkle_claim::process_close_merkle_claim,
-        close_merkle_distribution::process_close_merkle_distribution,
-        create_direct_distribution::process_create_direct_distribution,
-        create_merkle_distribution::process_create_merkle_distribution, emit_event::process_emit_event,
+        direct::{
+            add_recipient::process_add_direct_recipient, claim::process_claim_direct,
+            close_distribution::process_close_direct_distribution, close_recipient::process_close_direct_recipient,
+            create_distribution::process_create_direct_distribution,
+        },
+        emit_event::process_emit_event,
+        merkle::{
+            claim::process_claim_merkle, close_claim::process_close_merkle_claim,
+            close_distribution::process_close_merkle_distribution,
+            create_distribution::process_create_merkle_distribution,
+        },
     },
     traits::RewardsInstructionDiscriminators,
 };
