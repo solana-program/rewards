@@ -20,7 +20,7 @@ pub struct ClaimMerkleSetup {
     pub claim_pda: Pubkey,
     pub claim_bump: u8,
     pub mint: Pubkey,
-    pub vault: Pubkey,
+    pub distribution_vault: Pubkey,
     pub claimant_token_account: Pubkey,
     pub token_program: Pubkey,
     pub total_amount: u64,
@@ -75,7 +75,7 @@ impl ClaimMerkleSetup {
             .distribution(self.distribution_pda)
             .claim_account(self.claim_pda)
             .mint(self.mint)
-            .vault(self.vault)
+            .distribution_vault(self.distribution_vault)
             .claimant_token_account(self.claimant_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
@@ -109,7 +109,7 @@ impl ClaimMerkleSetup {
             .distribution(self.distribution_pda)
             .claim_account(wrong_claim_pda)
             .mint(self.mint)
-            .vault(self.vault)
+            .distribution_vault(self.distribution_vault)
             .claimant_token_account(wrong_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
@@ -136,7 +136,7 @@ impl ClaimMerkleSetup {
             .distribution(self.distribution_pda)
             .claim_account(self.claim_pda)
             .mint(self.mint)
-            .vault(self.vault)
+            .distribution_vault(self.distribution_vault)
             .claimant_token_account(self.claimant_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
@@ -163,7 +163,7 @@ impl ClaimMerkleSetup {
             .distribution(self.distribution_pda)
             .claim_account(self.claim_pda)
             .mint(self.mint)
-            .vault(self.vault)
+            .distribution_vault(self.distribution_vault)
             .claimant_token_account(self.claimant_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
@@ -290,7 +290,7 @@ impl<'a> ClaimMerkleSetupBuilder<'a> {
             claim_pda,
             claim_bump,
             mint: distribution_setup.mint.pubkey(),
-            vault: distribution_setup.vault,
+            distribution_vault: distribution_setup.distribution_vault,
             claimant_token_account,
             token_program: self.token_program,
             total_amount: self.claimant_amount,
@@ -323,7 +323,7 @@ impl InstructionTestFixture for ClaimMerkleFixture {
     /// 0: payer
     /// 2: distribution
     /// 3: claim_account
-    /// 5: vault
+    /// 5: distribution_vault
     /// 6: claimant_token_account
     fn required_writable() -> &'static [usize] {
         &[0, 2, 3, 5, 6]

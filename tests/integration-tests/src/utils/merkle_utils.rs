@@ -4,6 +4,10 @@ use tiny_keccak::{Hasher, Keccak};
 
 const LEAF_PREFIX: &[u8] = &[0];
 
+/// Maximum byte length of a leaf's inner hash input:
+/// 32 (claimant) + 8 (total_amount) + 25 (max schedule = CliffLinear)
+const MAX_LEAF_DATA_LEN: usize = 65;
+
 fn schedule_to_bytes(schedule: &VestingSchedule) -> Vec<u8> {
     match schedule {
         VestingSchedule::Immediate => vec![0],
@@ -45,7 +49,7 @@ pub fn compute_leaf_hash(claimant: &Pubkey, total_amount: u64, schedule: &Vestin
     let schedule_bytes = schedule_to_bytes(schedule);
     let schedule_len = schedule_bytes.len();
     let inner_len = 32 + 8 + schedule_len;
-    let mut inner_data = [0u8; 65]; // max: 32 + 8 + 25 (CliffLinear)
+    let mut inner_data = [0u8; MAX_LEAF_DATA_LEN];
     inner_data[0..32].copy_from_slice(claimant.as_ref());
     inner_data[32..40].copy_from_slice(&total_amount.to_le_bytes());
     inner_data[40..40 + schedule_len].copy_from_slice(&schedule_bytes);

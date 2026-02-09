@@ -66,15 +66,26 @@ macro_rules! assert_no_padding {
     };
 }
 
-/// Implement boilerplate `From` and `TryFrom` traits for instruction structs.
+/// Define a complete instruction struct with all boilerplate trait implementations.
+///
+/// Generates:
+/// - The instruction struct with `accounts` and `data` fields
+/// - `From<(Accounts, Data)>` impl
+/// - `TryFrom<(&[u8], &[AccountView])>` impl
+/// - `Instruction` trait implementation
 ///
 /// # Example
 /// ```ignore
-/// impl_instruction!(UpdateAdmin, UpdateAdminAccounts, UpdateAdminData);
+/// define_instruction!(ClaimMerkle, ClaimMerkleAccounts, ClaimMerkleData);
 /// ```
 #[macro_export]
-macro_rules! impl_instruction {
+macro_rules! define_instruction {
     ($name:ident, $accounts:ident, $data:ident) => {
+        pub struct $name<'a> {
+            pub accounts: $accounts<'a>,
+            pub data: $data,
+        }
+
         impl<'a> From<($accounts<'a>, $data)> for $name<'a> {
             #[inline(always)]
             fn from((accounts, data): ($accounts<'a>, $data)) -> Self {
@@ -89,7 +100,22 @@ macro_rules! impl_instruction {
             fn try_from(
                 (data, accounts): (&'a [u8], &'a [pinocchio::account::AccountView]),
             ) -> Result<Self, Self::Error> {
-                Self::parse(data, accounts)
+                <Self as $crate::traits::Instruction>::parse(data, accounts)
+            }
+        }
+
+        impl<'a> $crate::traits::Instruction<'a> for $name<'a> {
+            type Accounts = $accounts<'a>;
+            type Data = $data;
+
+            #[inline(always)]
+            fn accounts(&self) -> &Self::Accounts {
+                &self.accounts
+            }
+
+            #[inline(always)]
+            fn data(&self) -> &Self::Data {
+                &self.data
             }
         }
     };

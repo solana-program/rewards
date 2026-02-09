@@ -23,19 +23,44 @@ A token vesting program for Solana that enables authorities to create distributi
 
 ## Key Features
 
-- **Linear vesting schedules** - Tokens unlock proportionally over time between start and end timestamps
+- **Two distribution types** - Direct (on-chain recipient accounts) and Merkle (off-chain tree, on-chain root)
+- **Configurable vesting schedules** - Immediate, Linear, Cliff, and CliffLinear
 - **Per-recipient configuration** - Each recipient has their own vesting schedule within a distribution
 - **Token-2022 support** - Works with both SPL Token and Token-2022 mints
-- **Extension blocking** - Rejects mints with PermanentDelegate, NonTransferable, or Pausable extensions
+
+## When to Use What
+
+### Distribution Type
+
+|                  | Direct                                          | Merkle                                                                   |
+| ---------------- | ----------------------------------------------- | ------------------------------------------------------------------------ |
+| **How it works** | Creates an on-chain account per recipient       | Stores a single merkle root on-chain; recipients provide proofs to claim |
+| **Upfront cost** | Authority pays rent for every recipient account | No per-recipient accounts until someone claims                           |
+| **Scalability**  | Practical up to low thousands of recipients     | Scales to millions with constant on-chain storage                        |
+| **Mutability**   | Recipients can be added after creation          | Recipient set is fixed at creation                                       |
+| **Best for**     | Small, dynamic distributions                    | Large, fixed distributions                                               |
+
+### Vesting Schedule
+
+| Schedule        | Behavior                                                                                                                                          |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Immediate**   | All tokens are claimable right away                                                                                                               |
+| **Linear**      | Tokens unlock proportionally between `start_ts` and `end_ts`                                                                                      |
+| **Cliff**       | Nothing unlocks until `cliff_ts`, then everything unlocks at once                                                                                 |
+| **CliffLinear** | Nothing unlocks until `cliff_ts`, then linear vesting from `start_ts` to `end_ts` (tokens accrued before the cliff become claimable at the cliff) |
 
 ## Account Types
 
-| Account             | PDA Seeds                                          | Description                                   |
-| ------------------- | -------------------------------------------------- | --------------------------------------------- |
-| VestingDistribution | `["vesting_distribution", mint, authority, seeds]` | Distribution config (authority, mint, totals) |
-| VestingRecipient    | `["vesting_recipient", distribution, recipient]`   | Recipient allocation and vesting schedule     |
+| Account            | PDA Seeds                                         | Description                                   |
+| ------------------ | ------------------------------------------------- | --------------------------------------------- |
+| DirectDistribution | `["direct_distribution", mint, authority, seeds]` | Distribution config (authority, mint, totals) |
+| DirectRecipient    | `["direct_recipient", distribution, recipient]`   | Recipient allocation and vesting schedule     |
+| MerkleDistribution | `["merkle_distribution", mint, authority, seeds]` | Distribution config with merkle root          |
+| MerkleClaim        | `["merkle_claim", distribution, claimant]`        | Tracks claimed amount per claimant            |
 
 ## Workflow
+
+### Direct Distribution
 
 ```mermaid
 sequenceDiagram
@@ -43,12 +68,12 @@ sequenceDiagram
     participant Program
     participant Accounts
 
-    Authority->>Program: CreateVestingDistribution
+    Authority->>Program: CreateDirectDistribution
     Program->>Accounts: create Distribution PDA
     Program->>Accounts: create Vault ATA
     Program->>Accounts: transfer initial funding
 
-    Authority->>Program: AddVestingRecipient
+    Authority->>Program: AddDirectRecipient
     Program->>Accounts: create Recipient PDA
     Program->>Accounts: update total_allocated
 ```
@@ -61,11 +86,13 @@ sequenceDiagram
 
     Note over Recipient,Accounts: time passes, tokens vest
 
-    Recipient->>Program: ClaimVesting
+    Recipient->>Program: ClaimDirect
     Program->>Accounts: calculate unlocked amount
     Program->>Recipient: transfer vested tokens
     Program->>Accounts: update claimed_amount
 ```
+
+### Merkle Distribution
 
 ```mermaid
 sequenceDiagram
@@ -73,7 +100,36 @@ sequenceDiagram
     participant Program
     participant Accounts
 
-    Authority->>Program: CloseVestingDistribution
+    Note over Authority: build merkle tree off-chain
+    Authority->>Program: CreateMerkleDistribution (with root)
+    Program->>Accounts: create Distribution PDA
+    Program->>Accounts: create Vault ATA
+    Program->>Accounts: transfer initial funding
+```
+
+```mermaid
+sequenceDiagram
+    participant Claimant
+    participant Program
+    participant Accounts
+
+    Note over Claimant,Accounts: time passes, tokens vest
+
+    Claimant->>Program: ClaimMerkle (with proof)
+    Program->>Accounts: verify proof against root
+    Program->>Accounts: create/update MerkleClaim PDA
+    Program->>Claimant: transfer vested tokens
+```
+
+### Closing
+
+```mermaid
+sequenceDiagram
+    participant Authority
+    participant Program
+    participant Accounts
+
+    Authority->>Program: CloseDirectDistribution / CloseMerkleDistribution
     Program->>Accounts: return remaining tokens
     Program->>Accounts: close Distribution PDA
     Program->>Authority: reclaim rent

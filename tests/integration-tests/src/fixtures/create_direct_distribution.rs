@@ -3,24 +3,20 @@ use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signer},
 };
-use spl_token_2022::{extension::ExtensionType, ID as TOKEN_2022_PROGRAM_ID};
+use spl_token_2022::ID as TOKEN_2022_PROGRAM_ID;
 use spl_token_interface::ID as TOKEN_PROGRAM_ID;
 
 use crate::utils::{
     find_direct_distribution_pda, find_event_authority_pda, InstructionTestFixture, TestContext, TestInstruction,
 };
 
-pub const DEFAULT_DISTRIBUTION_AMOUNT: u64 = 10_000_000;
-
 pub struct CreateDirectDistributionSetup {
     pub authority: Keypair,
-    pub seeds: Keypair,
+    pub seed: Keypair,
     pub mint: Keypair,
-    pub vault: Pubkey,
-    pub authority_token_account: Pubkey,
+    pub distribution_vault: Pubkey,
     pub distribution_pda: Pubkey,
     pub bump: u8,
-    pub amount: u64,
     pub token_program: Pubkey,
 }
 
@@ -37,33 +33,6 @@ impl CreateDirectDistributionSetup {
         Self::builder(ctx).token_2022().build()
     }
 
-    pub fn new_with_extension(ctx: &mut TestContext, extension_type: ExtensionType) -> Self {
-        let amount = DEFAULT_DISTRIBUTION_AMOUNT;
-        let authority = ctx.create_funded_keypair();
-        let seeds = Keypair::new();
-        let mint = Keypair::new();
-
-        ctx.create_token_2022_mint_with_extension(&mint, &ctx.payer.pubkey(), 6, extension_type);
-
-        let (distribution_pda, bump) =
-            find_direct_distribution_pda(&mint.pubkey(), &authority.pubkey(), &seeds.pubkey());
-        let vault = ctx.create_token_2022_account(&distribution_pda, &mint.pubkey());
-        let authority_token_account =
-            ctx.create_token_2022_account_with_balance(&authority.pubkey(), &mint.pubkey(), amount);
-
-        Self {
-            authority,
-            seeds,
-            mint,
-            vault,
-            authority_token_account,
-            distribution_pda,
-            bump,
-            amount,
-            token_program: TOKEN_2022_PROGRAM_ID,
-        }
-    }
-
     pub fn build_instruction(&self, ctx: &TestContext) -> TestInstruction {
         let (event_authority, _) = find_event_authority_pda();
 
@@ -71,19 +40,17 @@ impl CreateDirectDistributionSetup {
         builder
             .payer(ctx.payer.pubkey())
             .authority(self.authority.pubkey())
-            .seeds(self.seeds.pubkey())
+            .seeds(self.seed.pubkey())
             .distribution(self.distribution_pda)
             .mint(self.mint.pubkey())
-            .vault(self.vault)
-            .authority_token_account(self.authority_token_account)
+            .distribution_vault(self.distribution_vault)
             .token_program(self.token_program)
             .event_authority(event_authority)
-            .bump(self.bump)
-            .amount(self.amount);
+            .bump(self.bump);
 
         TestInstruction {
             instruction: builder.instruction(),
-            signers: vec![self.authority.insecure_clone(), self.seeds.insecure_clone()],
+            signers: vec![self.authority.insecure_clone(), self.seed.insecure_clone()],
             name: "CreateDirectDistribution",
         }
     }
@@ -92,12 +59,11 @@ impl CreateDirectDistributionSetup {
 pub struct CreateDirectDistributionSetupBuilder<'a> {
     ctx: &'a mut TestContext,
     token_program: Pubkey,
-    amount: u64,
 }
 
 impl<'a> CreateDirectDistributionSetupBuilder<'a> {
     fn new(ctx: &'a mut TestContext) -> Self {
-        Self { ctx, token_program: TOKEN_PROGRAM_ID, amount: DEFAULT_DISTRIBUTION_AMOUNT }
+        Self { ctx, token_program: TOKEN_PROGRAM_ID }
     }
 
     pub fn token_2022(mut self) -> Self {
@@ -107,11 +73,6 @@ impl<'a> CreateDirectDistributionSetupBuilder<'a> {
 
     pub fn token_program(mut self, program: Pubkey) -> Self {
         self.token_program = program;
-        self
-    }
-
-    pub fn amount(mut self, amount: u64) -> Self {
-        self.amount = amount;
         self
     }
 
@@ -125,23 +86,15 @@ impl<'a> CreateDirectDistributionSetupBuilder<'a> {
 
         let (distribution_pda, bump) =
             find_direct_distribution_pda(&mint.pubkey(), &authority.pubkey(), &seeds.pubkey());
-        let vault = self.ctx.create_ata_for_program(&distribution_pda, &mint.pubkey(), &token_program);
-        let authority_token_account = self.ctx.create_ata_for_program_with_balance(
-            &authority.pubkey(),
-            &mint.pubkey(),
-            self.amount,
-            &token_program,
-        );
+        let distribution_vault = self.ctx.create_ata_for_program(&distribution_pda, &mint.pubkey(), &token_program);
 
         CreateDirectDistributionSetup {
             authority,
-            seeds,
+            seed: seeds,
             mint,
-            vault,
-            authority_token_account,
+            distribution_vault,
             distribution_pda,
             bump,
-            amount: self.amount,
             token_program,
         }
     }
@@ -168,21 +121,20 @@ impl InstructionTestFixture for CreateDirectDistributionFixture {
     /// Account indices that must be writable:
     /// 0: payer (handled by TestContext)
     /// 3: distribution
-    /// 5: vault
-    /// 6: authority_token_account
+    /// 5: distribution_vault
     fn required_writable() -> &'static [usize] {
-        &[0, 3, 5, 6]
+        &[0, 3, 5]
     }
 
     fn system_program_index() -> Option<usize> {
-        Some(7)
+        Some(6)
     }
 
     fn current_program_index() -> Option<usize> {
-        Some(11)
+        Some(10)
     }
 
     fn data_len() -> usize {
-        1 + 1 + 8 // discriminator + bump + amount
+        1 + 1 // discriminator + bump
     }
 }

@@ -13,10 +13,9 @@ pub struct CloseDirectDistributionSetup {
     pub authority: Keypair,
     pub distribution_pda: Pubkey,
     pub mint: Pubkey,
-    pub vault: Pubkey,
+    pub distribution_vault: Pubkey,
     pub authority_token_account: Pubkey,
     pub token_program: Pubkey,
-    pub funded_amount: u64,
 }
 
 impl CloseDirectDistributionSetup {
@@ -46,10 +45,9 @@ impl CloseDirectDistributionSetup {
             authority: distribution_setup.authority.insecure_clone(),
             distribution_pda: distribution_setup.distribution_pda,
             mint: distribution_setup.mint.pubkey(),
-            vault: distribution_setup.vault,
+            distribution_vault: distribution_setup.distribution_vault,
             authority_token_account,
             token_program: distribution_setup.token_program,
-            funded_amount: distribution_setup.amount,
         }
     }
 
@@ -61,7 +59,7 @@ impl CloseDirectDistributionSetup {
             .authority(self.authority.pubkey())
             .distribution(self.distribution_pda)
             .mint(self.mint)
-            .vault(self.vault)
+            .distribution_vault(self.distribution_vault)
             .authority_token_account(self.authority_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority);
@@ -86,7 +84,7 @@ impl CloseDirectDistributionSetup {
             .authority(wrong_authority.pubkey())
             .distribution(self.distribution_pda)
             .mint(self.mint)
-            .vault(self.vault)
+            .distribution_vault(self.distribution_vault)
             .authority_token_account(wrong_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority);
@@ -102,12 +100,11 @@ impl CloseDirectDistributionSetup {
 pub struct CloseDirectDistributionSetupBuilder<'a> {
     ctx: &'a mut TestContext,
     token_program: Pubkey,
-    amount: u64,
 }
 
 impl<'a> CloseDirectDistributionSetupBuilder<'a> {
     fn new(ctx: &'a mut TestContext) -> Self {
-        Self { ctx, token_program: TOKEN_PROGRAM_ID, amount: 1_000_000 }
+        Self { ctx, token_program: TOKEN_PROGRAM_ID }
     }
 
     pub fn token_2022(mut self) -> Self {
@@ -120,13 +117,8 @@ impl<'a> CloseDirectDistributionSetupBuilder<'a> {
         self
     }
 
-    pub fn amount(mut self, amount: u64) -> Self {
-        self.amount = amount;
-        self
-    }
-
     pub fn build(self) -> CloseDirectDistributionSetup {
-        let mut distribution_builder = CreateDirectDistributionSetup::builder(self.ctx).amount(self.amount);
+        let mut distribution_builder = CreateDirectDistributionSetup::builder(self.ctx);
         if self.token_program == TOKEN_2022_PROGRAM_ID {
             distribution_builder = distribution_builder.token_2022();
         }
@@ -145,10 +137,9 @@ impl<'a> CloseDirectDistributionSetupBuilder<'a> {
             authority: distribution_setup.authority,
             distribution_pda: distribution_setup.distribution_pda,
             mint: distribution_setup.mint.pubkey(),
-            vault: distribution_setup.vault,
+            distribution_vault: distribution_setup.distribution_vault,
             authority_token_account,
             token_program: self.token_program,
-            funded_amount: self.amount,
         }
     }
 }
@@ -172,7 +163,7 @@ impl InstructionTestFixture for CloseDirectDistributionFixture {
     /// Account indices that must be writable:
     /// 0: authority
     /// 1: distribution
-    /// 3: vault
+    /// 3: distribution_vault
     /// 4: authority_token_account
     fn required_writable() -> &'static [usize] {
         &[0, 1, 3, 4]

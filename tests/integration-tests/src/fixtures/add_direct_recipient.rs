@@ -23,8 +23,8 @@ pub struct AddDirectRecipientSetup {
     pub schedule: VestingSchedule,
     pub token_program: Pubkey,
     pub mint: Pubkey,
-    pub vault: Pubkey,
-    pub distribution_amount: u64,
+    pub distribution_vault: Pubkey,
+    pub authority_token_account: Pubkey,
 }
 
 impl AddDirectRecipientSetup {
@@ -50,6 +50,13 @@ impl AddDirectRecipientSetup {
 
         let current_ts = ctx.get_current_timestamp();
 
+        let authority_token_account = ctx.create_ata_for_program_with_balance(
+            &distribution_setup.authority.pubkey(),
+            &distribution_setup.mint.pubkey(),
+            DEFAULT_RECIPIENT_AMOUNT,
+            &distribution_setup.token_program,
+        );
+
         Self {
             authority: distribution_setup.authority.insecure_clone(),
             distribution_pda: distribution_setup.distribution_pda,
@@ -60,8 +67,8 @@ impl AddDirectRecipientSetup {
             schedule: VestingSchedule::Linear { start_ts: current_ts, end_ts: current_ts + 86400 * 365 },
             token_program: distribution_setup.token_program,
             mint: distribution_setup.mint.pubkey(),
-            vault: distribution_setup.vault,
-            distribution_amount: distribution_setup.amount,
+            distribution_vault: distribution_setup.distribution_vault,
+            authority_token_account,
         }
     }
 
@@ -94,7 +101,8 @@ impl AddDirectRecipientSetup {
             .recipient_account(self.recipient_pda)
             .recipient(self.recipient.pubkey())
             .mint(self.mint)
-            .vault(self.vault)
+            .distribution_vault(self.distribution_vault)
+            .authority_token_account(self.authority_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
             .bump(self.recipient_bump)
@@ -123,7 +131,8 @@ impl AddDirectRecipientSetup {
             .recipient_account(self.recipient_pda)
             .recipient(self.recipient.pubkey())
             .mint(self.mint)
-            .vault(self.vault)
+            .distribution_vault(self.distribution_vault)
+            .authority_token_account(self.authority_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
             .bump(self.recipient_bump)
@@ -143,18 +152,11 @@ pub struct AddDirectRecipientSetupBuilder<'a> {
     token_program: Pubkey,
     amount: u64,
     schedule: Option<VestingSchedule>,
-    distribution_amount: Option<u64>,
 }
 
 impl<'a> AddDirectRecipientSetupBuilder<'a> {
     fn new(ctx: &'a mut TestContext) -> Self {
-        Self {
-            ctx,
-            token_program: TOKEN_PROGRAM_ID,
-            amount: DEFAULT_RECIPIENT_AMOUNT,
-            schedule: None,
-            distribution_amount: None,
-        }
+        Self { ctx, token_program: TOKEN_PROGRAM_ID, amount: DEFAULT_RECIPIENT_AMOUNT, schedule: None }
     }
 
     pub fn token_2022(mut self) -> Self {
@@ -172,21 +174,12 @@ impl<'a> AddDirectRecipientSetupBuilder<'a> {
         self
     }
 
-    pub fn distribution_amount(mut self, amount: u64) -> Self {
-        self.distribution_amount = Some(amount);
-        self
-    }
-
     pub fn build(self) -> AddDirectRecipientSetup {
         let mut distribution_builder = CreateDirectDistributionSetup::builder(self.ctx);
         if self.token_program == TOKEN_2022_PROGRAM_ID {
             distribution_builder = distribution_builder.token_2022();
         }
-        if let Some(dist_amount) = self.distribution_amount {
-            distribution_builder = distribution_builder.amount(dist_amount);
-        }
         let distribution_setup = distribution_builder.build();
-        let distribution_amount = distribution_setup.amount;
 
         let instruction = distribution_setup.build_instruction(self.ctx);
         instruction.send_expect_success(self.ctx);
@@ -199,6 +192,13 @@ impl<'a> AddDirectRecipientSetupBuilder<'a> {
         let schedule =
             self.schedule.unwrap_or(VestingSchedule::Linear { start_ts: current_ts, end_ts: current_ts + 86400 * 365 });
 
+        let authority_token_account = self.ctx.create_ata_for_program_with_balance(
+            &distribution_setup.authority.pubkey(),
+            &distribution_setup.mint.pubkey(),
+            self.amount,
+            &self.token_program,
+        );
+
         AddDirectRecipientSetup {
             authority: distribution_setup.authority,
             distribution_pda: distribution_setup.distribution_pda,
@@ -209,8 +209,8 @@ impl<'a> AddDirectRecipientSetupBuilder<'a> {
             schedule,
             token_program: self.token_program,
             mint: distribution_setup.mint.pubkey(),
-            vault: distribution_setup.vault,
-            distribution_amount,
+            distribution_vault: distribution_setup.distribution_vault,
+            authority_token_account,
         }
     }
 }
@@ -236,16 +236,18 @@ impl InstructionTestFixture for AddDirectRecipientFixture {
     /// 0: payer (handled by TestContext)
     /// 2: distribution
     /// 3: recipient_account
+    /// 6: distribution_vault
+    /// 7: authority_token_account
     fn required_writable() -> &'static [usize] {
-        &[0, 2, 3]
+        &[0, 2, 3, 6, 7]
     }
 
     fn system_program_index() -> Option<usize> {
-        Some(7)
+        Some(8)
     }
 
     fn current_program_index() -> Option<usize> {
-        Some(10)
+        Some(11)
     }
 
     fn data_len() -> usize {

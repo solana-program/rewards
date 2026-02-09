@@ -30,7 +30,7 @@ pub struct MerkleDistribution {
     _padding: [u8; 7],
     pub authority: Address,
     pub mint: Address,
-    pub seeds: Address,
+    pub seed: Address,
     pub merkle_root: [u8; 32],
     pub total_amount: u64,
     pub total_claimed: u64,
@@ -80,7 +80,7 @@ impl AccountParse for MerkleDistribution {
             _padding: [0u8; 7],
             authority,
             mint,
-            seeds,
+            seed: seeds,
             merkle_root,
             total_amount,
             total_claimed,
@@ -97,7 +97,7 @@ impl AccountSerialize for MerkleDistribution {
         data.extend_from_slice(&[0u8; 7]); // padding
         data.extend_from_slice(self.authority.as_ref());
         data.extend_from_slice(self.mint.as_ref());
-        data.extend_from_slice(self.seeds.as_ref());
+        data.extend_from_slice(self.seed.as_ref());
         data.extend_from_slice(&self.merkle_root);
         data.extend_from_slice(&self.total_amount.to_le_bytes());
         data.extend_from_slice(&self.total_claimed.to_le_bytes());
@@ -112,7 +112,7 @@ impl PdaSeeds for MerkleDistribution {
     const PREFIX: &'static [u8] = b"merkle_distribution";
 
     fn seeds(&self) -> Vec<&[u8]> {
-        vec![Self::PREFIX, self.mint.as_ref(), self.authority.as_ref(), self.seeds.as_ref()]
+        vec![Self::PREFIX, self.mint.as_ref(), self.authority.as_ref(), self.seed.as_ref()]
     }
 
     fn seeds_with_bump<'a>(&'a self, bump: &'a [u8; 1]) -> Vec<Seed<'a>> {
@@ -120,7 +120,7 @@ impl PdaSeeds for MerkleDistribution {
             Seed::from(Self::PREFIX),
             Seed::from(self.mint.as_ref()),
             Seed::from(self.authority.as_ref()),
-            Seed::from(self.seeds.as_ref()),
+            Seed::from(self.seed.as_ref()),
             Seed::from(bump.as_slice()),
         ]
     }
@@ -146,7 +146,7 @@ impl Distribution for MerkleDistribution {
 
     #[inline(always)]
     fn seeds_key(&self) -> &Address {
-        &self.seeds
+        &self.seed
     }
 
     #[inline(always)]
@@ -155,8 +155,12 @@ impl Distribution for MerkleDistribution {
     }
 
     #[inline(always)]
-    fn set_total_claimed(&mut self, amount: u64) {
+    fn set_total_claimed(&mut self, amount: u64) -> Result<(), ProgramError> {
+        if amount < self.total_claimed {
+            return Err(RewardsProgramError::ClaimedAmountDecreased.into());
+        }
         self.total_claimed = amount;
+        Ok(())
     }
 }
 
@@ -171,7 +175,7 @@ impl DistributionSigner for MerkleDistribution {
             Seed::from(Self::PREFIX),
             Seed::from(self.mint.as_ref()),
             Seed::from(self.authority.as_ref()),
-            Seed::from(self.seeds.as_ref()),
+            Seed::from(self.seed.as_ref()),
             Seed::from(bump_seed.as_slice()),
         ];
         let signers = [Signer::from(&pda_seeds)];
@@ -195,7 +199,7 @@ impl MerkleDistribution {
             _padding: [0u8; 7],
             authority,
             mint,
-            seeds,
+            seed: seeds,
             merkle_root,
             total_amount,
             total_claimed: 0,
@@ -234,7 +238,7 @@ mod tests {
         assert_eq!(dist.bump, 255);
         assert_eq!(dist.authority, Address::new_from_array([1u8; 32]));
         assert_eq!(dist.mint, Address::new_from_array([2u8; 32]));
-        assert_eq!(dist.seeds, Address::new_from_array([3u8; 32]));
+        assert_eq!(dist.seed, Address::new_from_array([3u8; 32]));
         assert_eq!(dist.merkle_root, [4u8; 32]);
         assert_eq!(dist.total_amount, 1_000_000);
         assert_eq!(dist.total_claimed, 0);
@@ -272,7 +276,7 @@ mod tests {
         assert_eq!(deserialized.bump, dist.bump);
         assert_eq!(deserialized.authority, dist.authority);
         assert_eq!(deserialized.mint, dist.mint);
-        assert_eq!(deserialized.seeds, dist.seeds);
+        assert_eq!(deserialized.seed, dist.seed);
         assert_eq!(deserialized.merkle_root, dist.merkle_root);
         assert_eq!(deserialized.total_amount, dist.total_amount);
         assert_eq!(deserialized.total_claimed, dist.total_claimed);
@@ -287,7 +291,7 @@ mod tests {
         assert_eq!(seeds[0], MerkleDistribution::PREFIX);
         assert_eq!(seeds[1], dist.mint.as_ref());
         assert_eq!(seeds[2], dist.authority.as_ref());
-        assert_eq!(seeds[3], dist.seeds.as_ref());
+        assert_eq!(seeds[3], dist.seed.as_ref());
     }
 
     #[test]
@@ -309,7 +313,7 @@ mod tests {
         let dist = create_test_distribution();
         assert_eq!(Distribution::mint(&dist), &dist.mint);
         assert_eq!(Distribution::authority(&dist), &dist.authority);
-        assert_eq!(Distribution::seeds_key(&dist), &dist.seeds);
+        assert_eq!(Distribution::seeds_key(&dist), &dist.seed);
         assert_eq!(PdaAccount::bump(&dist), dist.bump);
         assert_eq!(Distribution::total_claimed(&dist), dist.total_claimed);
     }
@@ -319,5 +323,13 @@ mod tests {
         let mut dist = create_test_distribution();
         Distribution::add_claimed(&mut dist, 500).unwrap();
         assert_eq!(dist.total_claimed, 500);
+    }
+
+    #[test]
+    fn test_set_total_claimed_rejects_decrease() {
+        let mut dist = create_test_distribution();
+        Distribution::add_claimed(&mut dist, 500).unwrap();
+        assert!(Distribution::set_total_claimed(&mut dist, 400).is_err());
+        assert_eq!(Distribution::total_claimed(&dist), 500);
     }
 }

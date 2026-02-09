@@ -6,7 +6,6 @@ pub mod merkle_utils;
 pub mod pda_utils;
 pub mod program_utils;
 pub mod time_utils;
-pub mod token2022_utils;
 pub mod token_utils;
 pub mod vesting_utils;
 
@@ -17,6 +16,5 @@ pub use merkle_utils::*;
 pub use pda_utils::*;
 pub use program_utils::*;
 pub use time_utils::*;
-pub use token2022_utils::*;
 pub use token_utils::*;
 pub use vesting_utils::*;

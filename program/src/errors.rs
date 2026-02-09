@@ -45,41 +45,33 @@ pub enum RewardsProgramError {
     #[error("Event authority PDA is invalid")]
     InvalidEventAuthority,
 
-    /// (10) Mint has PermanentDelegate extension which is not allowed
-    #[error("Mint has PermanentDelegate extension which is not allowed")]
-    PermanentDelegateNotAllowed,
-
-    /// (11) Mint has NonTransferable extension which is not allowed
-    #[error("Mint has NonTransferable extension which is not allowed")]
-    NonTransferableNotAllowed,
-
-    /// (12) Mint has Pausable extension which is not allowed
-    #[error("Mint has Pausable extension which is not allowed")]
-    PausableNotAllowed,
-
-    /// (13) Rent calculation failed
+    /// (10) Rent calculation failed
     #[error("Rent calculation failed")]
     RentCalculationFailed,
 
-    /// (14) Requested claim amount exceeds available balance
+    /// (11) Requested claim amount exceeds available balance
     #[error("Requested claim amount exceeds available balance")]
     ExceedsClaimableAmount,
 
-    /// (15) Invalid merkle proof
+    /// (12) Invalid merkle proof
     #[error("Invalid merkle proof")]
     InvalidMerkleProof,
 
-    /// (16) Clawback timestamp not yet reached
+    /// (13) Clawback timestamp not yet reached
     #[error("Clawback timestamp not yet reached")]
     ClawbackNotReached,
 
-    /// (17) Claim has not been fully vested
+    /// (14) Claim has not been fully vested
     #[error("Claim has not been fully vested")]
     ClaimNotFullyVested,
 
-    /// (18) Invalid cliff timestamp
+    /// (15) Invalid cliff timestamp
     #[error("Invalid cliff timestamp")]
     InvalidCliffTimestamp,
+
+    /// (16) Claimed amount cannot decrease
+    #[error("Claimed amount cannot decrease")]
+    ClaimedAmountDecreased,
 }
 
 impl From<RewardsProgramError> for ProgramError {

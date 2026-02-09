@@ -4,8 +4,8 @@ use rewards_program_client::types::VestingSchedule;
 
 use crate::fixtures::{ClaimMerkleFixture, ClaimMerkleSetup};
 use crate::utils::{
-    assert_account_closed, assert_merkle_claim, assert_rewards_error, expected_linear_unlock, test_missing_signer,
-    test_not_writable, test_wrong_current_program, test_wrong_system_program, RewardsError, TestContext,
+    assert_merkle_claim, assert_rewards_error, expected_linear_unlock, test_missing_signer, test_not_writable,
+    test_wrong_current_program, test_wrong_system_program, RewardsError, TestContext,
 };
 
 #[test]
@@ -64,8 +64,8 @@ fn test_claim_merkle_success() {
     let balance_after = ctx.get_token_balance(&setup.claimant_token_account);
     assert_eq!(balance_after, setup.total_amount);
 
-    // Claim should be auto-closed when fully claimed
-    assert_account_closed(&ctx, &setup.claim_pda);
+    // Claim account persists after full claim (rent recovered via CloseMerkleClaim)
+    assert_merkle_claim(&ctx, &setup.claim_pda, setup.total_amount, setup.claim_bump);
 }
 
 #[test]
@@ -165,8 +165,8 @@ fn test_claim_merkle_partial_claim_then_full() {
     let final_balance = ctx.get_token_balance(&setup.claimant_token_account);
     assert_eq!(final_balance, setup.total_amount);
 
-    // Claim should be auto-closed
-    assert_account_closed(&ctx, &setup.claim_pda);
+    // Claim account persists (rent recovered via CloseMerkleClaim after distribution closes)
+    assert_merkle_claim(&ctx, &setup.claim_pda, setup.total_amount, setup.claim_bump);
 }
 
 #[test]
@@ -271,4 +271,23 @@ fn test_claim_merkle_idempotent_claim_creation() {
     // Balance should remain unchanged
     let second_balance = ctx.get_token_balance(&setup.claimant_token_account);
     assert_eq!(second_balance, first_balance);
+}
+
+#[test]
+fn test_claim_merkle_reclaim_after_full_claim_fails() {
+    let mut ctx = TestContext::new();
+    let setup = ClaimMerkleSetup::new(&mut ctx);
+
+    let instruction = setup.build_instruction(&ctx);
+    instruction.send_expect_success(&mut ctx);
+
+    let balance = ctx.get_token_balance(&setup.claimant_token_account);
+    assert_eq!(balance, setup.total_amount);
+
+    ctx.advance_slot();
+
+    // Second claim must fail — everything is already claimed
+    let instruction2 = setup.build_instruction(&ctx);
+    let error = instruction2.send_expect_error(&mut ctx);
+    assert_rewards_error(error, RewardsError::NothingToClaim);
 }

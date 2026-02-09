@@ -1,3 +1,4 @@
+use alloc::vec;
 use alloc::vec::Vec;
 use codama::CodamaType;
 use pinocchio::Address;
@@ -8,24 +9,21 @@ use crate::traits::{EventDiscriminator, EventDiscriminators, EventSerialize};
 pub struct DistributionCreatedEvent {
     pub authority: Address,
     pub mint: Address,
-    pub seeds: Address,
+    pub seed: Address,
     pub type_data: DistributionCreatedData,
 }
 
 #[derive(Clone, Debug, PartialEq, CodamaType)]
 pub enum DistributionCreatedData {
-    Direct { initial_funding: u64 },
+    Direct {},
     Merkle { merkle_root: [u8; 32], total_amount: u64, clawback_ts: i64 },
 }
 
 impl DistributionCreatedData {
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
-            DistributionCreatedData::Direct { initial_funding } => {
-                let mut data = Vec::with_capacity(1 + 8);
-                data.push(0); // Direct variant
-                data.extend_from_slice(&initial_funding.to_le_bytes());
-                data
+            DistributionCreatedData::Direct {} => {
+                vec![0] // Direct variant
             }
             DistributionCreatedData::Merkle { merkle_root, total_amount, clawback_ts } => {
                 let mut data = Vec::with_capacity(1 + 32 + 8 + 8);
@@ -50,26 +48,26 @@ impl EventSerialize for DistributionCreatedEvent {
         let mut data = Vec::with_capacity(32 + 32 + 32 + type_data_bytes.len());
         data.extend_from_slice(self.authority.as_ref());
         data.extend_from_slice(self.mint.as_ref());
-        data.extend_from_slice(self.seeds.as_ref());
+        data.extend_from_slice(self.seed.as_ref());
         data.extend_from_slice(&type_data_bytes);
         data
     }
 }
 
 impl DistributionCreatedEvent {
-    pub const DIRECT_DATA_LEN: usize = 32 + 32 + 32 + 1 + 8; // authority + mint + seeds + variant + initial_funding
-    pub const MERKLE_DATA_LEN: usize = 32 + 32 + 32 + 1 + 32 + 8 + 8; // authority + mint + seeds + variant + merkle_root + total_amount + clawback_ts
+    pub const DIRECT_DATA_LEN: usize = 32 + 32 + 32 + 1; // authority + mint + seed + variant
+    pub const MERKLE_DATA_LEN: usize = 32 + 32 + 32 + 1 + 32 + 8 + 8; // authority + mint + seed + variant + merkle_root + total_amount + clawback_ts
 
     #[inline(always)]
-    pub fn direct(authority: Address, mint: Address, seeds: Address, initial_funding: u64) -> Self {
-        Self { authority, mint, seeds, type_data: DistributionCreatedData::Direct { initial_funding } }
+    pub fn direct(authority: Address, mint: Address, seed: Address) -> Self {
+        Self { authority, mint, seed, type_data: DistributionCreatedData::Direct {} }
     }
 
     #[inline(always)]
     pub fn merkle(
         authority: Address,
         mint: Address,
-        seeds: Address,
+        seed: Address,
         merkle_root: [u8; 32],
         total_amount: u64,
         clawback_ts: i64,
@@ -77,7 +75,7 @@ impl DistributionCreatedEvent {
         Self {
             authority,
             mint,
-            seeds,
+            seed,
             type_data: DistributionCreatedData::Merkle { merkle_root, total_amount, clawback_ts },
         }
     }
@@ -95,12 +93,12 @@ mod tests {
         let mint = Address::new_from_array([2u8; 32]);
         let seeds = Address::new_from_array([3u8; 32]);
 
-        let event = DistributionCreatedEvent::direct(authority, mint, seeds, 500);
+        let event = DistributionCreatedEvent::direct(authority, mint, seeds);
 
         assert_eq!(event.authority, authority);
         assert_eq!(event.mint, mint);
-        assert_eq!(event.seeds, seeds);
-        assert!(matches!(event.type_data, DistributionCreatedData::Direct { initial_funding: 500 }));
+        assert_eq!(event.seed, seeds);
+        assert!(matches!(event.type_data, DistributionCreatedData::Direct {}));
     }
 
     #[test]
@@ -114,7 +112,7 @@ mod tests {
 
         assert_eq!(event.authority, authority);
         assert_eq!(event.mint, mint);
-        assert_eq!(event.seeds, seeds);
+        assert_eq!(event.seed, seeds);
         match event.type_data {
             DistributionCreatedData::Merkle { merkle_root: root, total_amount, clawback_ts } => {
                 assert_eq!(root, merkle_root);
@@ -130,7 +128,7 @@ mod tests {
         let authority = Address::new_from_array([1u8; 32]);
         let mint = Address::new_from_array([2u8; 32]);
         let seeds = Address::new_from_array([3u8; 32]);
-        let event = DistributionCreatedEvent::direct(authority, mint, seeds, 500);
+        let event = DistributionCreatedEvent::direct(authority, mint, seeds);
 
         let bytes = event.to_bytes_inner();
         assert_eq!(bytes.len(), DistributionCreatedEvent::DIRECT_DATA_LEN);
@@ -138,7 +136,6 @@ mod tests {
         assert_eq!(&bytes[32..64], mint.as_ref());
         assert_eq!(&bytes[64..96], seeds.as_ref());
         assert_eq!(bytes[96], 0); // Direct variant
-        assert_eq!(&bytes[97..105], &500u64.to_le_bytes());
     }
 
     #[test]
@@ -165,7 +162,7 @@ mod tests {
         let authority = Address::new_from_array([1u8; 32]);
         let mint = Address::new_from_array([2u8; 32]);
         let seeds = Address::new_from_array([3u8; 32]);
-        let event = DistributionCreatedEvent::direct(authority, mint, seeds, 500);
+        let event = DistributionCreatedEvent::direct(authority, mint, seeds);
 
         let bytes = event.to_bytes();
         assert_eq!(bytes.len(), EVENT_DISCRIMINATOR_LEN + DistributionCreatedEvent::DIRECT_DATA_LEN);

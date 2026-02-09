@@ -19,7 +19,7 @@ pub struct ClaimDirectSetup {
     pub recipient_pda: Pubkey,
     pub recipient_bump: u8,
     pub mint: Pubkey,
-    pub vault: Pubkey,
+    pub distribution_vault: Pubkey,
     pub recipient_token_account: Pubkey,
     pub token_program: Pubkey,
     pub amount: u64,
@@ -64,7 +64,7 @@ impl ClaimDirectSetup {
             recipient_pda: recipient_setup.recipient_pda,
             recipient_bump: recipient_setup.recipient_bump,
             mint: recipient_setup.mint,
-            vault: recipient_setup.vault,
+            distribution_vault: recipient_setup.distribution_vault,
             recipient_token_account,
             token_program: recipient_setup.token_program,
             amount: recipient_setup.amount,
@@ -86,7 +86,7 @@ impl ClaimDirectSetup {
             .distribution(self.distribution_pda)
             .recipient_account(self.recipient_pda)
             .mint(self.mint)
-            .vault(self.vault)
+            .distribution_vault(self.distribution_vault)
             .recipient_token_account(self.recipient_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
@@ -114,7 +114,7 @@ impl ClaimDirectSetup {
             .distribution(self.distribution_pda)
             .recipient_account(wrong_recipient_pda)
             .mint(self.mint)
-            .vault(self.vault)
+            .distribution_vault(self.distribution_vault)
             .recipient_token_account(wrong_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
@@ -141,7 +141,7 @@ impl ClaimDirectSetup {
             .distribution(self.distribution_pda)
             .recipient_account(self.recipient_pda)
             .mint(self.mint)
-            .vault(self.vault)
+            .distribution_vault(self.distribution_vault)
             .recipient_token_account(wrong_signer_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
@@ -200,17 +200,14 @@ impl<'a> ClaimDirectSetupBuilder<'a> {
     }
 
     pub fn build(self) -> ClaimDirectSetup {
-        let distribution_setup = CreateDirectDistributionSetup::builder(self.ctx)
-            .amount(self.amount * 2)
-            .token_program(self.token_program)
-            .build();
+        let distribution_setup =
+            CreateDirectDistributionSetup::builder(self.ctx).token_program(self.token_program).build();
         let create_ix = distribution_setup.build_instruction(self.ctx);
         create_ix.send_expect_success(self.ctx);
 
         let current_ts = self.ctx.get_current_timestamp();
-        let schedule = self
-            .schedule
-            .unwrap_or(VestingSchedule::Linear { start_ts: current_ts, end_ts: current_ts + 86400 * 365 });
+        let schedule =
+            self.schedule.unwrap_or(VestingSchedule::Linear { start_ts: current_ts, end_ts: current_ts + 86400 * 365 });
 
         let (start_ts, end_ts) = match &schedule {
             VestingSchedule::Linear { start_ts, end_ts } => (*start_ts, *end_ts),
@@ -223,6 +220,13 @@ impl<'a> ClaimDirectSetupBuilder<'a> {
         let (recipient_pda, recipient_bump) =
             find_direct_recipient_pda(&distribution_setup.distribution_pda, &recipient.pubkey());
 
+        let authority_token_account = self.ctx.create_ata_for_program_with_balance(
+            &distribution_setup.authority.pubkey(),
+            &distribution_setup.mint.pubkey(),
+            self.amount,
+            &self.token_program,
+        );
+
         let recipient_setup = AddDirectRecipientSetup {
             authority: distribution_setup.authority.insecure_clone(),
             distribution_pda: distribution_setup.distribution_pda,
@@ -233,8 +237,8 @@ impl<'a> ClaimDirectSetupBuilder<'a> {
             schedule,
             token_program: self.token_program,
             mint: distribution_setup.mint.pubkey(),
-            vault: distribution_setup.vault,
-            distribution_amount: distribution_setup.amount,
+            distribution_vault: distribution_setup.distribution_vault,
+            authority_token_account,
         };
         let add_recipient_ix = recipient_setup.build_instruction(self.ctx);
         add_recipient_ix.send_expect_success(self.ctx);
@@ -255,7 +259,7 @@ impl<'a> ClaimDirectSetupBuilder<'a> {
             recipient_pda,
             recipient_bump,
             mint: distribution_setup.mint.pubkey(),
-            vault: distribution_setup.vault,
+            distribution_vault: distribution_setup.distribution_vault,
             recipient_token_account,
             token_program: self.token_program,
             amount: self.amount,
@@ -284,7 +288,7 @@ impl InstructionTestFixture for ClaimDirectFixture {
     /// Account indices that must be writable:
     /// 1: distribution
     /// 2: recipient_account
-    /// 4: vault
+    /// 4: distribution_vault
     /// 5: recipient_token_account
     fn required_writable() -> &'static [usize] {
         &[1, 2, 4, 5]

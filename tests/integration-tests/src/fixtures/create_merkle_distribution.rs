@@ -3,7 +3,7 @@ use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signer},
 };
-use spl_token_2022::{extension::ExtensionType, ID as TOKEN_2022_PROGRAM_ID};
+use spl_token_2022::ID as TOKEN_2022_PROGRAM_ID;
 use spl_token_interface::ID as TOKEN_PROGRAM_ID;
 
 use crate::utils::{
@@ -14,9 +14,9 @@ pub const DEFAULT_CLAWBACK_OFFSET: i64 = 86400 * 365; // 1 year
 
 pub struct CreateMerkleDistributionSetup {
     pub authority: Keypair,
-    pub seeds: Keypair,
+    pub seed: Keypair,
     pub mint: Keypair,
-    pub vault: Pubkey,
+    pub distribution_vault: Pubkey,
     pub authority_token_account: Pubkey,
     pub distribution_pda: Pubkey,
     pub bump: u8,
@@ -40,38 +40,6 @@ impl CreateMerkleDistributionSetup {
         Self::builder(ctx).token_2022().build()
     }
 
-    pub fn new_with_extension(ctx: &mut TestContext, extension_type: ExtensionType) -> Self {
-        let amount = DEFAULT_MERKLE_DISTRIBUTION_AMOUNT;
-        let authority = ctx.create_funded_keypair();
-        let seeds = Keypair::new();
-        let mint = Keypair::new();
-
-        ctx.create_token_2022_mint_with_extension(&mint, &ctx.payer.pubkey(), 6, extension_type);
-
-        let (distribution_pda, bump) =
-            find_merkle_distribution_pda(&mint.pubkey(), &authority.pubkey(), &seeds.pubkey());
-        let vault = ctx.create_token_2022_account(&distribution_pda, &mint.pubkey());
-        let authority_token_account =
-            ctx.create_token_2022_account_with_balance(&authority.pubkey(), &mint.pubkey(), amount);
-
-        let current_ts = ctx.get_current_timestamp();
-
-        Self {
-            authority,
-            seeds,
-            mint,
-            vault,
-            authority_token_account,
-            distribution_pda,
-            bump,
-            amount,
-            total_amount: amount,
-            merkle_root: [1u8; 32],
-            clawback_ts: current_ts + DEFAULT_CLAWBACK_OFFSET,
-            token_program: TOKEN_2022_PROGRAM_ID,
-        }
-    }
-
     pub fn build_instruction(&self, ctx: &TestContext) -> TestInstruction {
         let (event_authority, _) = find_event_authority_pda();
 
@@ -79,10 +47,10 @@ impl CreateMerkleDistributionSetup {
         builder
             .payer(ctx.payer.pubkey())
             .authority(self.authority.pubkey())
-            .seeds(self.seeds.pubkey())
+            .seeds(self.seed.pubkey())
             .distribution(self.distribution_pda)
             .mint(self.mint.pubkey())
-            .vault(self.vault)
+            .distribution_vault(self.distribution_vault)
             .authority_token_account(self.authority_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
@@ -94,7 +62,7 @@ impl CreateMerkleDistributionSetup {
 
         TestInstruction {
             instruction: builder.instruction(),
-            signers: vec![self.authority.insecure_clone(), self.seeds.insecure_clone()],
+            signers: vec![self.authority.insecure_clone(), self.seed.insecure_clone()],
             name: "CreateMerkleDistribution",
         }
     }
@@ -110,10 +78,10 @@ impl CreateMerkleDistributionSetup {
         builder
             .payer(ctx.payer.pubkey())
             .authority(wrong_authority.pubkey())
-            .seeds(self.seeds.pubkey())
+            .seeds(self.seed.pubkey())
             .distribution(self.distribution_pda)
             .mint(self.mint.pubkey())
-            .vault(self.vault)
+            .distribution_vault(self.distribution_vault)
             .authority_token_account(self.authority_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
@@ -125,7 +93,7 @@ impl CreateMerkleDistributionSetup {
 
         TestInstruction {
             instruction: builder.instruction(),
-            signers: vec![wrong_authority.insecure_clone(), self.seeds.insecure_clone()],
+            signers: vec![wrong_authority.insecure_clone(), self.seed.insecure_clone()],
             name: "CreateMerkleDistribution",
         }
     }
@@ -192,7 +160,7 @@ impl<'a> CreateMerkleDistributionSetupBuilder<'a> {
 
         let (distribution_pda, bump) =
             find_merkle_distribution_pda(&mint.pubkey(), &authority.pubkey(), &seeds.pubkey());
-        let vault = self.ctx.create_ata_for_program(&distribution_pda, &mint.pubkey(), &token_program);
+        let distribution_vault = self.ctx.create_ata_for_program(&distribution_pda, &mint.pubkey(), &token_program);
         let authority_token_account = self.ctx.create_ata_for_program_with_balance(
             &authority.pubkey(),
             &mint.pubkey(),
@@ -207,9 +175,9 @@ impl<'a> CreateMerkleDistributionSetupBuilder<'a> {
 
         CreateMerkleDistributionSetup {
             authority,
-            seeds,
+            seed: seeds,
             mint,
-            vault,
+            distribution_vault,
             authority_token_account,
             distribution_pda,
             bump,
@@ -243,7 +211,7 @@ impl InstructionTestFixture for CreateMerkleDistributionFixture {
     /// Account indices that must be writable:
     /// 0: payer (handled by TestContext)
     /// 3: distribution
-    /// 5: vault
+    /// 5: distribution_vault
     /// 6: authority_token_account
     fn required_writable() -> &'static [usize] {
         &[0, 3, 5, 6]
