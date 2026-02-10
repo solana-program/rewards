@@ -79,7 +79,7 @@ pub fn process_revoke_merkle_claim(
     // Apply revoke mode
     let decimals = get_mint_decimals(ix.accounts.mint)?;
 
-    let (vested_transferred, unvested_returned) = match ix.data.revoke_mode {
+    let (vested_transferred, total_freed) = match ix.data.revoke_mode {
         RevokeMode::NonVested {} => {
             if vested_unclaimed > 0 {
                 distribution.with_signer(|signers| {
@@ -106,14 +106,14 @@ pub fn process_revoke_merkle_claim(
         }
     };
 
-    if unvested_returned > 0 {
+    if total_freed > 0 {
         distribution.with_signer(|signers| {
             TransferChecked {
                 from: ix.accounts.distribution_vault,
                 mint: ix.accounts.mint,
                 to: ix.accounts.authority_token_account,
                 authority: ix.accounts.distribution,
-                amount: unvested_returned,
+                amount: total_freed,
                 decimals,
                 token_program: ix.accounts.token_program.address(),
             }
@@ -151,7 +151,7 @@ pub fn process_revoke_merkle_claim(
         *ix.accounts.claimant.address(),
         ix.data.revoke_mode,
         vested_transferred,
-        unvested_returned,
+        total_freed,
     );
     emit_event(&ID, ix.accounts.event_authority, ix.accounts.program, &event.to_bytes())?;
 
