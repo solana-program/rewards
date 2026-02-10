@@ -22,6 +22,7 @@ pub fn process_create_merkle_distribution(
 
     let distribution = MerkleDistribution::new(
         ix.data.bump,
+        ix.data.revocable,
         *ix.accounts.authority.address(),
         *ix.accounts.mint.address(),
         *ix.accounts.seed.address(),

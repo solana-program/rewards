@@ -27,15 +27,17 @@ use crate::{assert_no_padding, require_account_len, validate_discriminator};
 #[repr(C)]
 pub struct DirectDistribution {
     pub bump: u8,
-    _padding: [u8; 7],
+    pub revocable: u8,
+    _padding: [u8; 6],
     pub authority: Address,
     pub mint: Address,
     pub seed: Address,
     pub total_allocated: u64,
     pub total_claimed: u64,
+    pub clawback_ts: i64,
 }
 
-assert_no_padding!(DirectDistribution, 1 + 7 + 32 + 32 + 32 + 8 + 8);
+assert_no_padding!(DirectDistribution, 1 + 1 + 6 + 32 + 32 + 32 + 8 + 8 + 8);
 
 impl Discriminator for DirectDistribution {
     const DISCRIMINATOR: u8 = RewardsAccountDiscriminators::DirectDistribution as u8;
@@ -46,7 +48,7 @@ impl Versioned for DirectDistribution {
 }
 
 impl AccountSize for DirectDistribution {
-    const DATA_LEN: usize = 1 + 7 + 32 + 32 + 32 + 8 + 8; // 120
+    const DATA_LEN: usize = 1 + 1 + 6 + 32 + 32 + 32 + 8 + 8 + 8; // 128
 }
 
 impl AccountParse for DirectDistribution {
@@ -58,7 +60,8 @@ impl AccountParse for DirectDistribution {
         let data = &data[2..];
 
         let bump = data[0];
-        // Skip padding bytes [1..8]
+        let revocable = data[1];
+        // Skip padding bytes [2..8]
         let authority =
             Address::new_from_array(data[8..40].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
         let mint =
@@ -69,8 +72,20 @@ impl AccountParse for DirectDistribution {
             u64::from_le_bytes(data[104..112].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
         let total_claimed =
             u64::from_le_bytes(data[112..120].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
+        let clawback_ts =
+            i64::from_le_bytes(data[120..128].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
 
-        Ok(Self { bump, _padding: [0u8; 7], authority, mint, seed: seeds, total_allocated, total_claimed })
+        Ok(Self {
+            bump,
+            revocable,
+            _padding: [0u8; 6],
+            authority,
+            mint,
+            seed: seeds,
+            total_allocated,
+            total_claimed,
+            clawback_ts,
+        })
     }
 }
 
@@ -79,12 +94,14 @@ impl AccountSerialize for DirectDistribution {
     fn to_bytes_inner(&self) -> Vec<u8> {
         let mut data = Vec::with_capacity(Self::DATA_LEN);
         data.push(self.bump);
-        data.extend_from_slice(&[0u8; 7]); // padding
+        data.push(self.revocable);
+        data.extend_from_slice(&[0u8; 6]); // padding
         data.extend_from_slice(self.authority.as_ref());
         data.extend_from_slice(self.mint.as_ref());
         data.extend_from_slice(self.seed.as_ref());
         data.extend_from_slice(&self.total_allocated.to_le_bytes());
         data.extend_from_slice(&self.total_claimed.to_le_bytes());
+        data.extend_from_slice(&self.clawback_ts.to_le_bytes());
         data
     }
 }
@@ -168,8 +185,18 @@ impl DistributionSigner for DirectDistribution {
 
 impl DirectDistribution {
     #[inline(always)]
-    pub fn new(bump: u8, authority: Address, mint: Address, seeds: Address) -> Self {
-        Self { bump, _padding: [0u8; 7], authority, mint, seed: seeds, total_allocated: 0, total_claimed: 0 }
+    pub fn new(bump: u8, revocable: u8, clawback_ts: i64, authority: Address, mint: Address, seeds: Address) -> Self {
+        Self {
+            bump,
+            revocable,
+            _padding: [0u8; 6],
+            authority,
+            mint,
+            seed: seeds,
+            total_allocated: 0,
+            total_claimed: 0,
+            clawback_ts,
+        }
     }
 
     #[inline(always)]
@@ -194,6 +221,8 @@ mod tests {
     fn create_test_distribution() -> DirectDistribution {
         DirectDistribution::new(
             255,
+            0,
+            0,
             Address::new_from_array([1u8; 32]),
             Address::new_from_array([2u8; 32]),
             Address::new_from_array([3u8; 32]),
@@ -204,8 +233,22 @@ mod tests {
     fn test_direct_distribution_new() {
         let dist = create_test_distribution();
         assert_eq!(dist.bump, 255);
+        assert_eq!(dist.revocable, 0);
         assert_eq!(dist.total_allocated, 0);
         assert_eq!(dist.total_claimed, 0);
+    }
+
+    #[test]
+    fn test_direct_distribution_new_revocable() {
+        let dist = DirectDistribution::new(
+            255,
+            1,
+            0,
+            Address::new_from_array([1u8; 32]),
+            Address::new_from_array([2u8; 32]),
+            Address::new_from_array([3u8; 32]),
+        );
+        assert_eq!(dist.revocable, 1);
     }
 
     #[test]
@@ -246,11 +289,52 @@ mod tests {
         let deserialized = DirectDistribution::parse_from_bytes(&bytes).unwrap();
 
         assert_eq!(deserialized.bump, dist.bump);
+        assert_eq!(deserialized.revocable, dist.revocable);
         assert_eq!(deserialized.authority, dist.authority);
         assert_eq!(deserialized.mint, dist.mint);
         assert_eq!(deserialized.seed, dist.seed);
         assert_eq!(deserialized.total_allocated, dist.total_allocated);
         assert_eq!(deserialized.total_claimed, dist.total_claimed);
+        assert_eq!(deserialized.clawback_ts, dist.clawback_ts);
+    }
+
+    #[test]
+    fn test_roundtrip_serialization_revocable() {
+        let dist = DirectDistribution::new(
+            200,
+            1,
+            0,
+            Address::new_from_array([1u8; 32]),
+            Address::new_from_array([2u8; 32]),
+            Address::new_from_array([3u8; 32]),
+        );
+        let bytes = dist.to_bytes();
+        let deserialized = DirectDistribution::parse_from_bytes(&bytes).unwrap();
+        assert_eq!(deserialized.revocable, 1);
+    }
+
+    #[test]
+    fn test_backward_compat_old_bytes_parse_as_non_revocable() {
+        let dist = create_test_distribution();
+        let bytes = dist.to_bytes();
+        // Old accounts have 0x00 at the revocable offset (was padding)
+        let deserialized = DirectDistribution::parse_from_bytes(&bytes).unwrap();
+        assert_eq!(deserialized.revocable, 0);
+    }
+
+    #[test]
+    fn test_roundtrip_serialization_with_clawback_ts() {
+        let dist = DirectDistribution::new(
+            200,
+            0,
+            1700000000,
+            Address::new_from_array([1u8; 32]),
+            Address::new_from_array([2u8; 32]),
+            Address::new_from_array([3u8; 32]),
+        );
+        let bytes = dist.to_bytes();
+        let deserialized = DirectDistribution::parse_from_bytes(&bytes).unwrap();
+        assert_eq!(deserialized.clawback_ts, 1700000000);
     }
 
     #[test]

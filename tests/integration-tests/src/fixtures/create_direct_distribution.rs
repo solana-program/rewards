@@ -18,6 +18,8 @@ pub struct CreateDirectDistributionSetup {
     pub distribution_pda: Pubkey,
     pub bump: u8,
     pub token_program: Pubkey,
+    pub revocable: u8,
+    pub clawback_ts: i64,
 }
 
 impl CreateDirectDistributionSetup {
@@ -46,7 +48,9 @@ impl CreateDirectDistributionSetup {
             .distribution_vault(self.distribution_vault)
             .token_program(self.token_program)
             .event_authority(event_authority)
-            .bump(self.bump);
+            .bump(self.bump)
+            .revocable(self.revocable)
+            .clawback_ts(self.clawback_ts);
 
         TestInstruction {
             instruction: builder.instruction(),
@@ -59,11 +63,13 @@ impl CreateDirectDistributionSetup {
 pub struct CreateDirectDistributionSetupBuilder<'a> {
     ctx: &'a mut TestContext,
     token_program: Pubkey,
+    revocable: u8,
+    clawback_ts: i64,
 }
 
 impl<'a> CreateDirectDistributionSetupBuilder<'a> {
     fn new(ctx: &'a mut TestContext) -> Self {
-        Self { ctx, token_program: TOKEN_PROGRAM_ID }
+        Self { ctx, token_program: TOKEN_PROGRAM_ID, revocable: 0, clawback_ts: 0 }
     }
 
     pub fn token_2022(mut self) -> Self {
@@ -73,6 +79,16 @@ impl<'a> CreateDirectDistributionSetupBuilder<'a> {
 
     pub fn token_program(mut self, program: Pubkey) -> Self {
         self.token_program = program;
+        self
+    }
+
+    pub fn revocable(mut self, revocable: u8) -> Self {
+        self.revocable = revocable;
+        self
+    }
+
+    pub fn clawback_ts(mut self, clawback_ts: i64) -> Self {
+        self.clawback_ts = clawback_ts;
         self
     }
 
@@ -96,6 +112,8 @@ impl<'a> CreateDirectDistributionSetupBuilder<'a> {
             distribution_pda,
             bump,
             token_program,
+            revocable: self.revocable,
+            clawback_ts: self.clawback_ts,
         }
     }
 }
@@ -135,6 +153,6 @@ impl InstructionTestFixture for CreateDirectDistributionFixture {
     }
 
     fn data_len() -> usize {
-        1 + 1 // discriminator + bump
+        1 + 1 + 1 + 8 // discriminator + bump + revocable + clawback_ts
     }
 }

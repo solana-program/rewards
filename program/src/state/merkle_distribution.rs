@@ -27,7 +27,8 @@ use crate::{assert_no_padding, require_account_len, validate_discriminator};
 #[repr(C)]
 pub struct MerkleDistribution {
     pub bump: u8,
-    _padding: [u8; 7],
+    pub revocable: u8,
+    _padding: [u8; 6],
     pub authority: Address,
     pub mint: Address,
     pub seed: Address,
@@ -37,7 +38,7 @@ pub struct MerkleDistribution {
     pub clawback_ts: i64,
 }
 
-assert_no_padding!(MerkleDistribution, 1 + 7 + 32 + 32 + 32 + 32 + 8 + 8 + 8);
+assert_no_padding!(MerkleDistribution, 1 + 1 + 6 + 32 + 32 + 32 + 32 + 8 + 8 + 8);
 
 impl Discriminator for MerkleDistribution {
     const DISCRIMINATOR: u8 = RewardsAccountDiscriminators::MerkleDistribution as u8;
@@ -48,7 +49,7 @@ impl Versioned for MerkleDistribution {
 }
 
 impl AccountSize for MerkleDistribution {
-    const DATA_LEN: usize = 1 + 7 + 32 + 32 + 32 + 32 + 8 + 8 + 8; // 160
+    const DATA_LEN: usize = 1 + 1 + 6 + 32 + 32 + 32 + 32 + 8 + 8 + 8; // 160
 }
 
 impl AccountParse for MerkleDistribution {
@@ -60,7 +61,8 @@ impl AccountParse for MerkleDistribution {
         let data = &data[2..];
 
         let bump = data[0];
-        // Skip padding bytes [1..8]
+        let revocable = data[1];
+        // Skip padding bytes [2..8]
         let authority =
             Address::new_from_array(data[8..40].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
         let mint =
@@ -77,7 +79,8 @@ impl AccountParse for MerkleDistribution {
 
         Ok(Self {
             bump,
-            _padding: [0u8; 7],
+            revocable,
+            _padding: [0u8; 6],
             authority,
             mint,
             seed: seeds,
@@ -94,7 +97,8 @@ impl AccountSerialize for MerkleDistribution {
     fn to_bytes_inner(&self) -> Vec<u8> {
         let mut data = Vec::with_capacity(Self::DATA_LEN);
         data.push(self.bump);
-        data.extend_from_slice(&[0u8; 7]); // padding
+        data.push(self.revocable);
+        data.extend_from_slice(&[0u8; 6]); // padding
         data.extend_from_slice(self.authority.as_ref());
         data.extend_from_slice(self.mint.as_ref());
         data.extend_from_slice(self.seed.as_ref());
@@ -184,9 +188,11 @@ impl DistributionSigner for MerkleDistribution {
 }
 
 impl MerkleDistribution {
+    #[allow(clippy::too_many_arguments)]
     #[inline(always)]
     pub fn new(
         bump: u8,
+        revocable: u8,
         authority: Address,
         mint: Address,
         seeds: Address,
@@ -196,7 +202,8 @@ impl MerkleDistribution {
     ) -> Self {
         Self {
             bump,
-            _padding: [0u8; 7],
+            revocable,
+            _padding: [0u8; 6],
             authority,
             mint,
             seed: seeds,
@@ -223,6 +230,7 @@ mod tests {
     fn create_test_distribution() -> MerkleDistribution {
         MerkleDistribution::new(
             255,
+            0,
             Address::new_from_array([1u8; 32]),
             Address::new_from_array([2u8; 32]),
             Address::new_from_array([3u8; 32]),
@@ -236,6 +244,7 @@ mod tests {
     fn test_merkle_distribution_new() {
         let dist = create_test_distribution();
         assert_eq!(dist.bump, 255);
+        assert_eq!(dist.revocable, 0);
         assert_eq!(dist.authority, Address::new_from_array([1u8; 32]));
         assert_eq!(dist.mint, Address::new_from_array([2u8; 32]));
         assert_eq!(dist.seed, Address::new_from_array([3u8; 32]));
@@ -274,6 +283,7 @@ mod tests {
         let deserialized = MerkleDistribution::parse_from_bytes(&bytes).unwrap();
 
         assert_eq!(deserialized.bump, dist.bump);
+        assert_eq!(deserialized.revocable, dist.revocable);
         assert_eq!(deserialized.authority, dist.authority);
         assert_eq!(deserialized.mint, dist.mint);
         assert_eq!(deserialized.seed, dist.seed);
@@ -281,6 +291,31 @@ mod tests {
         assert_eq!(deserialized.total_amount, dist.total_amount);
         assert_eq!(deserialized.total_claimed, dist.total_claimed);
         assert_eq!(deserialized.clawback_ts, dist.clawback_ts);
+    }
+
+    #[test]
+    fn test_roundtrip_serialization_revocable() {
+        let dist = MerkleDistribution::new(
+            200,
+            3,
+            Address::new_from_array([1u8; 32]),
+            Address::new_from_array([2u8; 32]),
+            Address::new_from_array([3u8; 32]),
+            [4u8; 32],
+            1_000_000,
+            0,
+        );
+        let bytes = dist.to_bytes();
+        let deserialized = MerkleDistribution::parse_from_bytes(&bytes).unwrap();
+        assert_eq!(deserialized.revocable, 3);
+    }
+
+    #[test]
+    fn test_backward_compat_old_bytes_parse_as_non_revocable() {
+        let dist = create_test_distribution();
+        let bytes = dist.to_bytes();
+        let deserialized = MerkleDistribution::parse_from_bytes(&bytes).unwrap();
+        assert_eq!(deserialized.revocable, 0);
     }
 
     #[test]

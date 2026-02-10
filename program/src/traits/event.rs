@@ -13,6 +13,7 @@ pub enum EventDiscriminators {
     DistributionCreated = 2,
     RecipientAdded = 3,
     ClaimClosed = 4,
+    RecipientRevoked = 5,
 }
 
 /// Event discriminator with Anchor-compatible prefix

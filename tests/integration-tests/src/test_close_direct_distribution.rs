@@ -113,3 +113,72 @@ fn test_close_direct_distribution_returns_tokens() {
         "Authority should receive vault tokens"
     );
 }
+
+// ── Clawback timestamp tests ───────────────────────────────────────
+
+#[test]
+fn test_close_direct_distribution_clawback_ts_zero_succeeds() {
+    let mut ctx = TestContext::new();
+    // clawback_ts=0 means no gate (default)
+    let setup = CloseDirectDistributionSetup::new(&mut ctx);
+    let test_ix = setup.build_instruction(&ctx);
+    test_ix.send_expect_success(&mut ctx);
+    assert_account_closed(&ctx, &setup.distribution_pda);
+}
+
+#[test]
+fn test_close_direct_distribution_clawback_ts_before_timestamp_fails() {
+    let mut ctx = TestContext::new();
+    let current_ts = ctx.get_current_timestamp();
+    let future_ts = current_ts + 86400 * 30; // 30 days in the future
+
+    let distribution_setup = CreateDirectDistributionSetup::builder(&mut ctx).clawback_ts(future_ts).build();
+    let create_ix = distribution_setup.build_instruction(&ctx);
+    create_ix.send_expect_success(&mut ctx);
+
+    let authority_token_account =
+        ctx.create_token_account(&distribution_setup.authority.pubkey(), &distribution_setup.mint.pubkey());
+
+    let close_setup = CloseDirectDistributionSetup {
+        authority: distribution_setup.authority.insecure_clone(),
+        distribution_pda: distribution_setup.distribution_pda,
+        mint: distribution_setup.mint.pubkey(),
+        distribution_vault: distribution_setup.distribution_vault,
+        authority_token_account,
+        token_program: distribution_setup.token_program,
+    };
+
+    let test_ix = close_setup.build_instruction(&ctx);
+    let error = test_ix.send_expect_error(&mut ctx);
+    assert_rewards_error(error, RewardsError::ClawbackNotReached);
+}
+
+#[test]
+fn test_close_direct_distribution_clawback_ts_after_timestamp_succeeds() {
+    let mut ctx = TestContext::new();
+    let current_ts = ctx.get_current_timestamp();
+    let future_ts = current_ts + 86400 * 30;
+
+    let distribution_setup = CreateDirectDistributionSetup::builder(&mut ctx).clawback_ts(future_ts).build();
+    let create_ix = distribution_setup.build_instruction(&ctx);
+    create_ix.send_expect_success(&mut ctx);
+
+    // Warp past the clawback timestamp
+    ctx.warp_to_timestamp(future_ts + 1);
+
+    let authority_token_account =
+        ctx.create_token_account(&distribution_setup.authority.pubkey(), &distribution_setup.mint.pubkey());
+
+    let close_setup = CloseDirectDistributionSetup {
+        authority: distribution_setup.authority.insecure_clone(),
+        distribution_pda: distribution_setup.distribution_pda,
+        mint: distribution_setup.mint.pubkey(),
+        distribution_vault: distribution_setup.distribution_vault,
+        authority_token_account,
+        token_program: distribution_setup.token_program,
+    };
+
+    let test_ix = close_setup.build_instruction(&ctx);
+    test_ix.send_expect_success(&mut ctx);
+    assert_account_closed(&ctx, &close_setup.distribution_pda);
+}

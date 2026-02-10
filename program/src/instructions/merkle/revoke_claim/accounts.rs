@@ -9,44 +9,48 @@ use crate::{
     },
 };
 
-pub struct ClaimMerkleAccounts<'a> {
+pub struct RevokeMerkleClaimAccounts<'a> {
+    pub authority: &'a AccountView,
     pub payer: &'a AccountView,
-    pub claimant: &'a AccountView,
     pub distribution: &'a AccountView,
     pub claim_account: &'a AccountView,
     pub revocation_account: &'a AccountView,
+    pub claimant: &'a AccountView,
     pub mint: &'a AccountView,
     pub distribution_vault: &'a AccountView,
     pub claimant_token_account: &'a AccountView,
+    pub authority_token_account: &'a AccountView,
     pub system_program: &'a AccountView,
     pub token_program: &'a AccountView,
     pub event_authority: &'a AccountView,
     pub program: &'a AccountView,
 }
 
-impl<'a> TryFrom<&'a [AccountView]> for ClaimMerkleAccounts<'a> {
+impl<'a> TryFrom<&'a [AccountView]> for RevokeMerkleClaimAccounts<'a> {
     type Error = ProgramError;
 
     #[inline(always)]
     fn try_from(accounts: &'a [AccountView]) -> Result<Self, Self::Error> {
-        let [payer, claimant, distribution, claim_account, revocation_account, mint, distribution_vault, claimant_token_account, system_program, token_program, event_authority, program] =
+        let [authority, payer, distribution, claim_account, revocation_account, claimant, mint, distribution_vault, claimant_token_account, authority_token_account, system_program, token_program, event_authority, program] =
             accounts
         else {
             return Err(ProgramError::NotEnoughAccountKeys);
         };
 
         // 1. Validate signers
+        verify_signer(authority, false)?;
         verify_signer(payer, true)?;
-        verify_signer(claimant, false)?;
 
         // 2. Validate writable
         verify_writable(distribution, true)?;
-        verify_writable(claim_account, true)?;
+        verify_writable(revocation_account, true)?;
         verify_writable(distribution_vault, true)?;
         verify_writable(claimant_token_account, true)?;
+        verify_writable(authority_token_account, true)?;
 
         // 2b. Validate read-only accounts
-        verify_readonly(revocation_account)?;
+        verify_readonly(claim_account)?;
+        verify_readonly(claimant)?;
         verify_readonly(mint)?;
 
         // 3. Validate program IDs
@@ -57,24 +61,27 @@ impl<'a> TryFrom<&'a [AccountView]> for ClaimMerkleAccounts<'a> {
 
         // 4. Validate accounts owned by current program
         verify_current_program_account(distribution)?;
-        // claim_account may not exist yet (will be created idempotently)
+        // revocation_account will be created
 
         // 5. Validate token account ownership
         verify_owned_by(mint, token_program.address())?;
         verify_owned_by(claimant_token_account, token_program.address())?;
+        verify_owned_by(authority_token_account, token_program.address())?;
 
         // 6. Validate distribution_vault ATA
         validate_associated_token_account(distribution_vault, distribution.address(), mint, token_program)?;
 
         Ok(Self {
+            authority,
             payer,
-            claimant,
             distribution,
             claim_account,
             revocation_account,
+            claimant,
             mint,
             distribution_vault,
             claimant_token_account,
+            authority_token_account,
             system_program,
             token_program,
             event_authority,
@@ -83,4 +90,4 @@ impl<'a> TryFrom<&'a [AccountView]> for ClaimMerkleAccounts<'a> {
     }
 }
 
-impl<'a> InstructionAccounts<'a> for ClaimMerkleAccounts<'a> {}
+impl<'a> InstructionAccounts<'a> for RevokeMerkleClaimAccounts<'a> {}

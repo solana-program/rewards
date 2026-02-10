@@ -72,6 +72,18 @@ pub enum RewardsProgramError {
     /// (16) Claimed amount cannot decrease
     #[error("Claimed amount cannot decrease")]
     ClaimedAmountDecreased,
+
+    /// (17) Distribution is not revocable
+    #[error("Distribution is not revocable")]
+    DistributionNotRevocable,
+
+    /// (18) Invalid revoke mode
+    #[error("Invalid revoke mode")]
+    InvalidRevokeMode,
+
+    /// (19) Claimant has already been revoked
+    #[error("Claimant has already been revoked")]
+    ClaimantAlreadyRevoked,
 }
 
 impl From<RewardsProgramError> for ProgramError {

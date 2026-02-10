@@ -4,78 +4,78 @@ use crate::{
     traits::InstructionAccounts,
     utils::{
         validate_associated_token_account, verify_current_program, verify_current_program_account,
-        verify_event_authority, verify_owned_by, verify_readonly, verify_signer, verify_system_program,
-        verify_token_program, verify_writable,
+        verify_event_authority, verify_owned_by, verify_readonly, verify_signer, verify_token_program, verify_writable,
     },
 };
 
-pub struct ClaimMerkleAccounts<'a> {
-    pub payer: &'a AccountView,
-    pub claimant: &'a AccountView,
+pub struct RevokeDirectRecipientAccounts<'a> {
+    pub authority: &'a AccountView,
     pub distribution: &'a AccountView,
-    pub claim_account: &'a AccountView,
-    pub revocation_account: &'a AccountView,
+    pub recipient_account: &'a AccountView,
+    pub recipient: &'a AccountView,
+    pub original_payer: &'a AccountView,
     pub mint: &'a AccountView,
     pub distribution_vault: &'a AccountView,
-    pub claimant_token_account: &'a AccountView,
-    pub system_program: &'a AccountView,
+    pub recipient_token_account: &'a AccountView,
+    pub authority_token_account: &'a AccountView,
     pub token_program: &'a AccountView,
     pub event_authority: &'a AccountView,
     pub program: &'a AccountView,
 }
 
-impl<'a> TryFrom<&'a [AccountView]> for ClaimMerkleAccounts<'a> {
+impl<'a> TryFrom<&'a [AccountView]> for RevokeDirectRecipientAccounts<'a> {
     type Error = ProgramError;
 
     #[inline(always)]
     fn try_from(accounts: &'a [AccountView]) -> Result<Self, Self::Error> {
-        let [payer, claimant, distribution, claim_account, revocation_account, mint, distribution_vault, claimant_token_account, system_program, token_program, event_authority, program] =
+        let [authority, distribution, recipient_account, recipient, original_payer, mint, distribution_vault, recipient_token_account, authority_token_account, token_program, event_authority, program] =
             accounts
         else {
             return Err(ProgramError::NotEnoughAccountKeys);
         };
 
         // 1. Validate signers
-        verify_signer(payer, true)?;
-        verify_signer(claimant, false)?;
+        verify_signer(authority, false)?;
 
         // 2. Validate writable
         verify_writable(distribution, true)?;
-        verify_writable(claim_account, true)?;
+        verify_writable(recipient_account, true)?;
+        verify_writable(original_payer, true)?;
         verify_writable(distribution_vault, true)?;
-        verify_writable(claimant_token_account, true)?;
+        verify_writable(recipient_token_account, true)?;
+        verify_writable(authority_token_account, true)?;
 
         // 2b. Validate read-only accounts
-        verify_readonly(revocation_account)?;
+        verify_readonly(recipient)?;
         verify_readonly(mint)?;
 
         // 3. Validate program IDs
-        verify_system_program(system_program)?;
         verify_token_program(token_program)?;
         verify_current_program(program)?;
         verify_event_authority(event_authority)?;
 
         // 4. Validate accounts owned by current program
         verify_current_program_account(distribution)?;
-        // claim_account may not exist yet (will be created idempotently)
+        verify_current_program_account(recipient_account)?;
 
         // 5. Validate token account ownership
         verify_owned_by(mint, token_program.address())?;
-        verify_owned_by(claimant_token_account, token_program.address())?;
+        verify_owned_by(recipient_token_account, token_program.address())?;
+        verify_owned_by(authority_token_account, token_program.address())?;
 
         // 6. Validate distribution_vault ATA
         validate_associated_token_account(distribution_vault, distribution.address(), mint, token_program)?;
 
         Ok(Self {
-            payer,
-            claimant,
+            authority,
             distribution,
-            claim_account,
-            revocation_account,
+            recipient_account,
+            recipient,
+            original_payer,
             mint,
             distribution_vault,
-            claimant_token_account,
-            system_program,
+            recipient_token_account,
+            authority_token_account,
             token_program,
             event_authority,
             program,
@@ -83,4 +83,4 @@ impl<'a> TryFrom<&'a [AccountView]> for ClaimMerkleAccounts<'a> {
     }
 }
 
-impl<'a> InstructionAccounts<'a> for ClaimMerkleAccounts<'a> {}
+impl<'a> InstructionAccounts<'a> for RevokeDirectRecipientAccounts<'a> {}

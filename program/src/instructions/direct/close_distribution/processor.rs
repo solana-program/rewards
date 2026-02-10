@@ -2,10 +2,11 @@ use pinocchio::{account::AccountView, Address, ProgramResult};
 use pinocchio_token_2022::instructions::{CloseAccount, TransferChecked};
 
 use crate::{
+    errors::RewardsProgramError,
     events::DistributionClosedEvent,
     state::DirectDistribution,
     traits::{Distribution, DistributionSigner, EventSerialize},
-    utils::{close_pda_account, emit_event, get_mint_decimals, get_token_account_balance},
+    utils::{close_pda_account, emit_event, get_current_timestamp, get_mint_decimals, get_token_account_balance},
     ID,
 };
 
@@ -21,6 +22,13 @@ pub fn process_close_direct_distribution(
     let distribution_data = ix.accounts.distribution.try_borrow()?;
     let distribution = DirectDistribution::from_account(&distribution_data, ix.accounts.distribution, &ID)?;
     distribution.validate_authority(ix.accounts.authority.address())?;
+
+    if distribution.clawback_ts != 0 {
+        let current_ts = get_current_timestamp()?;
+        if current_ts < distribution.clawback_ts {
+            return Err(RewardsProgramError::ClawbackNotReached.into());
+        }
+    }
 
     let remaining_amount = get_token_account_balance(ix.accounts.distribution_vault)?;
     let decimals = get_mint_decimals(ix.accounts.mint)?;

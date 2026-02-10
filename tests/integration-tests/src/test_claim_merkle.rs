@@ -29,13 +29,13 @@ fn test_claim_merkle_claim_account_not_writable() {
 #[test]
 fn test_claim_merkle_vault_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<ClaimMerkleFixture>(&mut ctx, 5);
+    test_not_writable::<ClaimMerkleFixture>(&mut ctx, 6);
 }
 
 #[test]
 fn test_claim_merkle_claimant_token_account_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<ClaimMerkleFixture>(&mut ctx, 6);
+    test_not_writable::<ClaimMerkleFixture>(&mut ctx, 7);
 }
 
 #[test]
