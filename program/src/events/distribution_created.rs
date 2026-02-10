@@ -1,4 +1,3 @@
-use alloc::vec;
 use alloc::vec::Vec;
 use codama::CodamaType;
 use pinocchio::Address;
@@ -15,15 +14,18 @@ pub struct DistributionCreatedEvent {
 
 #[derive(Clone, Debug, PartialEq, CodamaType)]
 pub enum DistributionCreatedData {
-    Direct {},
+    Direct { clawback_ts: i64 },
     Merkle { merkle_root: [u8; 32], total_amount: u64, clawback_ts: i64 },
 }
 
 impl DistributionCreatedData {
     pub fn to_bytes(&self) -> Vec<u8> {
         match self {
-            DistributionCreatedData::Direct {} => {
-                vec![0] // Direct variant
+            DistributionCreatedData::Direct { clawback_ts } => {
+                let mut data = Vec::with_capacity(1 + 8);
+                data.push(0); // Direct variant
+                data.extend_from_slice(&clawback_ts.to_le_bytes());
+                data
             }
             DistributionCreatedData::Merkle { merkle_root, total_amount, clawback_ts } => {
                 let mut data = Vec::with_capacity(1 + 32 + 8 + 8);
@@ -55,12 +57,12 @@ impl EventSerialize for DistributionCreatedEvent {
 }
 
 impl DistributionCreatedEvent {
-    pub const DIRECT_DATA_LEN: usize = 32 + 32 + 32 + 1; // authority + mint + seed + variant
+    pub const DIRECT_DATA_LEN: usize = 32 + 32 + 32 + 1 + 8; // authority + mint + seed + variant + clawback_ts
     pub const MERKLE_DATA_LEN: usize = 32 + 32 + 32 + 1 + 32 + 8 + 8; // authority + mint + seed + variant + merkle_root + total_amount + clawback_ts
 
     #[inline(always)]
-    pub fn direct(authority: Address, mint: Address, seed: Address) -> Self {
-        Self { authority, mint, seed, type_data: DistributionCreatedData::Direct {} }
+    pub fn direct(authority: Address, mint: Address, seed: Address, clawback_ts: i64) -> Self {
+        Self { authority, mint, seed, type_data: DistributionCreatedData::Direct { clawback_ts } }
     }
 
     #[inline(always)]
@@ -93,12 +95,33 @@ mod tests {
         let mint = Address::new_from_array([2u8; 32]);
         let seeds = Address::new_from_array([3u8; 32]);
 
-        let event = DistributionCreatedEvent::direct(authority, mint, seeds);
+        let event = DistributionCreatedEvent::direct(authority, mint, seeds, 0);
 
         assert_eq!(event.authority, authority);
         assert_eq!(event.mint, mint);
         assert_eq!(event.seed, seeds);
-        assert!(matches!(event.type_data, DistributionCreatedData::Direct {}));
+        match event.type_data {
+            DistributionCreatedData::Direct { clawback_ts } => {
+                assert_eq!(clawback_ts, 0);
+            }
+            _ => panic!("Expected Direct variant"),
+        }
+    }
+
+    #[test]
+    fn test_distribution_created_event_direct_with_clawback() {
+        let authority = Address::new_from_array([1u8; 32]);
+        let mint = Address::new_from_array([2u8; 32]);
+        let seeds = Address::new_from_array([3u8; 32]);
+
+        let event = DistributionCreatedEvent::direct(authority, mint, seeds, 1700000000);
+
+        match event.type_data {
+            DistributionCreatedData::Direct { clawback_ts } => {
+                assert_eq!(clawback_ts, 1700000000);
+            }
+            _ => panic!("Expected Direct variant"),
+        }
     }
 
     #[test]
@@ -128,7 +151,7 @@ mod tests {
         let authority = Address::new_from_array([1u8; 32]);
         let mint = Address::new_from_array([2u8; 32]);
         let seeds = Address::new_from_array([3u8; 32]);
-        let event = DistributionCreatedEvent::direct(authority, mint, seeds);
+        let event = DistributionCreatedEvent::direct(authority, mint, seeds, 0);
 
         let bytes = event.to_bytes_inner();
         assert_eq!(bytes.len(), DistributionCreatedEvent::DIRECT_DATA_LEN);
@@ -136,6 +159,19 @@ mod tests {
         assert_eq!(&bytes[32..64], mint.as_ref());
         assert_eq!(&bytes[64..96], seeds.as_ref());
         assert_eq!(bytes[96], 0); // Direct variant
+        assert_eq!(&bytes[97..105], &0i64.to_le_bytes()); // clawback_ts
+    }
+
+    #[test]
+    fn test_distribution_created_event_direct_to_bytes_inner_with_clawback() {
+        let authority = Address::new_from_array([1u8; 32]);
+        let mint = Address::new_from_array([2u8; 32]);
+        let seeds = Address::new_from_array([3u8; 32]);
+        let event = DistributionCreatedEvent::direct(authority, mint, seeds, 1700000000);
+
+        let bytes = event.to_bytes_inner();
+        assert_eq!(bytes.len(), DistributionCreatedEvent::DIRECT_DATA_LEN);
+        assert_eq!(&bytes[97..105], &1700000000i64.to_le_bytes());
     }
 
     #[test]
@@ -162,7 +198,7 @@ mod tests {
         let authority = Address::new_from_array([1u8; 32]);
         let mint = Address::new_from_array([2u8; 32]);
         let seeds = Address::new_from_array([3u8; 32]);
-        let event = DistributionCreatedEvent::direct(authority, mint, seeds);
+        let event = DistributionCreatedEvent::direct(authority, mint, seeds, 0);
 
         let bytes = event.to_bytes();
         assert_eq!(bytes.len(), EVENT_DISCRIMINATOR_LEN + DistributionCreatedEvent::DIRECT_DATA_LEN);

@@ -16,6 +16,9 @@ pub enum RewardsInstructionDiscriminators {
     CloseMerkleClaim = 7,
     CloseMerkleDistribution = 8,
 
+    // Revoke
+    RevokeDirectRecipient = 9,
+
     // Shared
     EmitEvent = 228,
 }
@@ -36,6 +39,8 @@ impl TryFrom<u8> for RewardsInstructionDiscriminators {
             6 => Ok(Self::ClaimMerkle),
             7 => Ok(Self::CloseMerkleClaim),
             8 => Ok(Self::CloseMerkleDistribution),
+            // Revoke
+            9 => Ok(Self::RevokeDirectRecipient),
             // Shared
             228 => Ok(Self::EmitEvent),
             _ => Err(ProgramError::InvalidInstructionData),
@@ -149,10 +154,14 @@ mod tests {
     }
 
     #[test]
-    fn test_discriminator_try_from_invalid() {
+    fn test_discriminator_try_from_revoke_direct_recipient() {
         let result = RewardsInstructionDiscriminators::try_from(9u8);
-        assert!(matches!(result, Err(ProgramError::InvalidInstructionData)));
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::RevokeDirectRecipient));
+    }
 
+    #[test]
+    fn test_discriminator_try_from_invalid() {
         let result = RewardsInstructionDiscriminators::try_from(10u8);
         assert!(matches!(result, Err(ProgramError::InvalidInstructionData)));
 

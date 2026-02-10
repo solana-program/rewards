@@ -6,6 +6,7 @@ use crate::{
             add_recipient::process_add_direct_recipient, claim::process_claim_direct,
             close_distribution::process_close_direct_distribution, close_recipient::process_close_direct_recipient,
             create_distribution::process_create_direct_distribution,
+            revoke_recipient::process_revoke_direct_recipient,
         },
         emit_event::process_emit_event,
         merkle::{
@@ -38,6 +39,9 @@ pub fn process_instruction(program_id: &Address, accounts: &[AccountView], instr
         }
         RewardsInstructionDiscriminators::CloseDirectRecipient => {
             process_close_direct_recipient(program_id, accounts, instruction_data)
+        }
+        RewardsInstructionDiscriminators::RevokeDirectRecipient => {
+            process_revoke_direct_recipient(program_id, accounts, instruction_data)
         }
         RewardsInstructionDiscriminators::CreateMerkleDistribution => {
             process_create_merkle_distribution(program_id, accounts, instruction_data)

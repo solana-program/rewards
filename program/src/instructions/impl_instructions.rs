@@ -6,6 +6,7 @@ use super::direct::{
     close_distribution::{CloseDirectDistributionAccounts, CloseDirectDistributionData},
     close_recipient::{CloseDirectRecipientAccounts, CloseDirectRecipientData},
     create_distribution::{CreateDirectDistributionAccounts, CreateDirectDistributionData},
+    revoke_recipient::{RevokeDirectRecipientAccounts, RevokeDirectRecipientData},
 };
 use super::merkle::{
     claim::{ClaimMerkleAccounts, ClaimMerkleData},
@@ -20,6 +21,7 @@ define_instruction!(ClaimDirect, ClaimDirectAccounts, ClaimDirectData);
 define_instruction!(CloseDirectDistribution, CloseDirectDistributionAccounts, CloseDirectDistributionData);
 define_instruction!(CloseDirectRecipient, CloseDirectRecipientAccounts, CloseDirectRecipientData);
 define_instruction!(CreateDirectDistribution, CreateDirectDistributionAccounts, CreateDirectDistributionData);
+define_instruction!(RevokeDirectRecipient, RevokeDirectRecipientAccounts, RevokeDirectRecipientData);
 
 // Merkle Distribution
 define_instruction!(ClaimMerkle, ClaimMerkleAccounts, ClaimMerkleData);

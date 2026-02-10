@@ -21,6 +21,8 @@ pub fn process_create_direct_distribution(
 
     let distribution = DirectDistribution::new(
         ix.data.bump,
+        ix.data.revocable,
+        ix.data.clawback_ts,
         *ix.accounts.authority.address(),
         *ix.accounts.mint.address(),
         *ix.accounts.seed.address(),
@@ -58,6 +60,7 @@ pub fn process_create_direct_distribution(
         *ix.accounts.authority.address(),
         *ix.accounts.mint.address(),
         *ix.accounts.seed.address(),
+        ix.data.clawback_ts,
     );
     emit_event(&ID, ix.accounts.event_authority, ix.accounts.program, &event.to_bytes())?;
 

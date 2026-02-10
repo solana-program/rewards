@@ -1,7 +1,7 @@
 use alloc::vec::Vec;
 use codama::CodamaInstructions;
 
-use crate::utils::VestingSchedule;
+use crate::utils::{RevokeMode, VestingSchedule};
 
 /// Instructions for the Rewards Program.
 #[repr(C, u8)]
@@ -30,6 +30,10 @@ pub enum RewardsProgramInstruction {
     CreateDirectDistribution {
         /// Bump for the distribution PDA
         bump: u8,
+        /// Whether recipients can be individually revoked (0 = no, 1 = yes)
+        revocable: u8,
+        /// Timestamp after which authority can close the distribution (0 = no gate)
+        clawback_ts: i64,
     } = 0,
 
     /// Add a recipient to a direct distribution.
@@ -265,6 +269,45 @@ pub enum RewardsProgramInstruction {
     #[codama(account(name = "event_authority", docs = "PDA: [b\"__event_authority\"] for event CPI"))]
     #[codama(account(name = "rewardsProgram", docs = "This program's ID"))]
     CloseMerkleDistribution {} = 8,
+
+    /// Revoke a recipient from a revocable direct distribution.
+    /// Mode 0 (NonVested): transfers vested-but-unclaimed tokens to recipient, frees unvested to vault pool.
+    /// Mode 1 (Full): returns all unclaimed tokens to vault pool, nothing transferred to recipient.
+    #[codama(account(
+        name = "authority",
+        signer,
+        docs = "Distribution authority; must match distribution.authority"
+    ))]
+    #[codama(account(name = "distribution", writable, docs = "PDA: DirectDistribution account"))]
+    #[codama(account(
+        name = "recipient_account",
+        writable,
+        docs = "PDA: [b\"direct_recipient\", distribution, recipient] (closed)"
+    ))]
+    #[codama(account(name = "recipient", docs = "Wallet address of the recipient"))]
+    #[codama(account(
+        name = "payer",
+        writable,
+        docs = "Original payer of recipient PDA; receives rent refund"
+    ))]
+    #[codama(account(name = "mint", docs = "SPL token mint"))]
+    #[codama(account(
+        name = "distribution_vault",
+        writable,
+        docs = "ATA of distribution PDA for mint; source of transferred tokens"
+    ))]
+    #[codama(account(
+        name = "recipient_token_account",
+        writable,
+        docs = "Recipient's token account; destination for vested tokens (NonVested mode)"
+    ))]
+    #[codama(account(name = "token_program", docs = "SPL Token or Token-2022 program"))]
+    #[codama(account(name = "event_authority", docs = "PDA: [b\"__event_authority\"] for event CPI"))]
+    #[codama(account(name = "rewardsProgram", docs = "This program's ID"))]
+    RevokeDirectRecipient {
+        /// Revoke mode: NonVested (fair) or Full (clawback all)
+        revoke_mode: RevokeMode,
+    } = 9,
 
     /// Emit event data via CPI (prevents log truncation).
     #[codama(account(name = "event_authority", signer, docs = "PDA: [b\"__event_authority\"]; validates CPI caller"))]

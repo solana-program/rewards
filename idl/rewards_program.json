@@ -17,11 +17,20 @@
             },
             {
               "kind": "structFieldTypeNode",
+              "name": "revocable",
+              "type": {
+                "endian": "le",
+                "format": "u8",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
               "name": "padding",
               "type": {
                 "count": {
                   "kind": "fixedCountNode",
-                  "value": 7
+                  "value": 6
                 },
                 "item": {
                   "endian": "le",
@@ -67,6 +76,15 @@
               "type": {
                 "endian": "le",
                 "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "clawbackTs",
+              "type": {
+                "endian": "le",
+                "format": "i64",
                 "kind": "numberTypeNode"
               }
             }
@@ -284,6 +302,36 @@
       }
     ],
     "definedTypes": [
+      {
+        "kind": "definedTypeNode",
+        "name": "revokeMode",
+        "type": {
+          "kind": "enumTypeNode",
+          "size": {
+            "endian": "le",
+            "format": "u8",
+            "kind": "numberTypeNode"
+          },
+          "variants": [
+            {
+              "kind": "enumStructVariantTypeNode",
+              "name": "nonVested",
+              "struct": {
+                "fields": [],
+                "kind": "structTypeNode"
+              }
+            },
+            {
+              "kind": "enumStructVariantTypeNode",
+              "name": "full",
+              "struct": {
+                "fields": [],
+                "kind": "structTypeNode"
+              }
+            }
+          ]
+        }
+      },
       {
         "kind": "definedTypeNode",
         "name": "vestingSchedule",
@@ -520,7 +568,17 @@
               "kind": "enumStructVariantTypeNode",
               "name": "direct",
               "struct": {
-                "fields": [],
+                "fields": [
+                  {
+                    "kind": "structFieldTypeNode",
+                    "name": "clawbackTs",
+                    "type": {
+                      "endian": "le",
+                      "format": "i64",
+                      "kind": "numberTypeNode"
+                    }
+                  }
+                ],
                 "kind": "structTypeNode"
               }
             },
@@ -604,6 +662,55 @@
               "type": {
                 "kind": "definedTypeLinkNode",
                 "name": "vestingSchedule"
+              }
+            }
+          ],
+          "kind": "structTypeNode"
+        }
+      },
+      {
+        "kind": "definedTypeNode",
+        "name": "recipientRevokedEvent",
+        "type": {
+          "fields": [
+            {
+              "kind": "structFieldTypeNode",
+              "name": "distribution",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "recipient",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "revokeMode",
+              "type": {
+                "kind": "definedTypeLinkNode",
+                "name": "revokeMode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "vestedTransferred",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "unvestedReturned",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
               }
             }
           ],
@@ -713,6 +820,18 @@
         "kind": "errorNode",
         "message": "Claimed amount cannot decrease",
         "name": "claimedAmountDecreased"
+      },
+      {
+        "code": 17,
+        "kind": "errorNode",
+        "message": "Distribution is not revocable",
+        "name": "distributionNotRevocable"
+      },
+      {
+        "code": 18,
+        "kind": "errorNode",
+        "message": "Invalid revoke mode",
+        "name": "invalidRevokeMode"
       }
     ],
     "instructions": [
@@ -839,6 +958,24 @@
             "type": {
               "endian": "le",
               "format": "u8",
+              "kind": "numberTypeNode"
+            }
+          },
+          {
+            "kind": "instructionArgumentNode",
+            "name": "revocable",
+            "type": {
+              "endian": "le",
+              "format": "u8",
+              "kind": "numberTypeNode"
+            }
+          },
+          {
+            "kind": "instructionArgumentNode",
+            "name": "clawbackTs",
+            "type": {
+              "endian": "le",
+              "format": "i64",
               "kind": "numberTypeNode"
             }
           }
@@ -1872,6 +2009,142 @@
         ],
         "kind": "instructionNode",
         "name": "closeMerkleDistribution"
+      },
+      {
+        "accounts": [
+          {
+            "docs": [
+              "Distribution authority; must match distribution.authority"
+            ],
+            "isSigner": true,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "authority"
+          },
+          {
+            "docs": [
+              "PDA: DirectDistribution account"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "distribution"
+          },
+          {
+            "docs": [
+              "PDA: [b\"direct_recipient\", distribution, recipient] (closed)"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "recipientAccount"
+          },
+          {
+            "docs": [
+              "Wallet address of the recipient"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "recipient"
+          },
+          {
+            "docs": [
+              "Original payer of recipient PDA; receives rent refund"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "payer"
+          },
+          {
+            "docs": [
+              "SPL token mint"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "mint"
+          },
+          {
+            "docs": [
+              "ATA of distribution PDA for mint; source of transferred tokens"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "distributionVault"
+          },
+          {
+            "docs": [
+              "Recipient's token account; destination for vested tokens (NonVested mode)"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "recipientTokenAccount"
+          },
+          {
+            "docs": [
+              "SPL Token or Token-2022 program"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "tokenProgram"
+          },
+          {
+            "docs": [
+              "PDA: [b\"__event_authority\"] for event CPI"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "eventAuthority"
+          },
+          {
+            "docs": [
+              "This program's ID"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "rewardsProgram"
+          }
+        ],
+        "arguments": [
+          {
+            "defaultValue": {
+              "kind": "numberValueNode",
+              "number": 9
+            },
+            "defaultValueStrategy": "omitted",
+            "kind": "instructionArgumentNode",
+            "name": "discriminator",
+            "type": {
+              "endian": "le",
+              "format": "u8",
+              "kind": "numberTypeNode"
+            }
+          },
+          {
+            "kind": "instructionArgumentNode",
+            "name": "revokeMode",
+            "type": {
+              "kind": "definedTypeLinkNode",
+              "name": "revokeMode"
+            }
+          }
+        ],
+        "discriminators": [
+          {
+            "kind": "fieldDiscriminatorNode",
+            "name": "discriminator",
+            "offset": 0
+          }
+        ],
+        "kind": "instructionNode",
+        "name": "revokeDirectRecipient"
       },
       {
         "accounts": [
