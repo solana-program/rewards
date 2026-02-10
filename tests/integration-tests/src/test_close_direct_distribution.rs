@@ -132,9 +132,7 @@ fn test_close_direct_distribution_clawback_ts_before_timestamp_fails() {
     let current_ts = ctx.get_current_timestamp();
     let future_ts = current_ts + 86400 * 30; // 30 days in the future
 
-    let distribution_setup = CreateDirectDistributionSetup::builder(&mut ctx)
-        .clawback_ts(future_ts)
-        .build();
+    let distribution_setup = CreateDirectDistributionSetup::builder(&mut ctx).clawback_ts(future_ts).build();
     let create_ix = distribution_setup.build_instruction(&ctx);
     create_ix.send_expect_success(&mut ctx);
 
@@ -161,9 +159,7 @@ fn test_close_direct_distribution_clawback_ts_after_timestamp_succeeds() {
     let current_ts = ctx.get_current_timestamp();
     let future_ts = current_ts + 86400 * 30;
 
-    let distribution_setup = CreateDirectDistributionSetup::builder(&mut ctx)
-        .clawback_ts(future_ts)
-        .build();
+    let distribution_setup = CreateDirectDistributionSetup::builder(&mut ctx).clawback_ts(future_ts).build();
     let create_ix = distribution_setup.build_instruction(&ctx);
     create_ix.send_expect_success(&mut ctx);
 

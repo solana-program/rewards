@@ -2,8 +2,8 @@ use alloc::vec::Vec;
 use codama::CodamaType;
 use pinocchio::Address;
 
-use crate::utils::RevokeMode;
 use crate::traits::{EventDiscriminator, EventDiscriminators, EventSerialize};
+use crate::utils::RevokeMode;
 
 #[derive(CodamaType)]
 pub struct RecipientRevokedEvent {

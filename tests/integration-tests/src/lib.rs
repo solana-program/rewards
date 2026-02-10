@@ -23,3 +23,5 @@ mod test_create_direct_distribution;
 mod test_create_merkle_distribution;
 #[cfg(test)]
 mod test_revoke_direct_recipient;
+#[cfg(test)]
+mod test_revoke_merkle_claim;

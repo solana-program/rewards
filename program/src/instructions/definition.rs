@@ -198,6 +198,10 @@ pub enum RewardsProgramInstruction {
         writable,
         docs = "PDA: [b\"merkle_claim\", distribution, claimant] (created or updated)"
     ))]
+    #[codama(account(
+        name = "revocation_account",
+        docs = "PDA: [b\"merkle_revocation\", distribution, claimant] (checked for existence)"
+    ))]
     #[codama(account(name = "mint", docs = "SPL token mint"))]
     #[codama(account(
         name = "distribution_vault",
@@ -273,11 +277,7 @@ pub enum RewardsProgramInstruction {
     /// Revoke a recipient from a revocable direct distribution.
     /// Mode 0 (NonVested): transfers vested-but-unclaimed tokens to recipient, frees unvested to vault pool.
     /// Mode 1 (Full): returns all unclaimed tokens to vault pool, nothing transferred to recipient.
-    #[codama(account(
-        name = "authority",
-        signer,
-        docs = "Distribution authority; must match distribution.authority"
-    ))]
+    #[codama(account(name = "authority", signer, docs = "Distribution authority; must match distribution.authority"))]
     #[codama(account(name = "distribution", writable, docs = "PDA: DirectDistribution account"))]
     #[codama(account(
         name = "recipient_account",
@@ -285,11 +285,7 @@ pub enum RewardsProgramInstruction {
         docs = "PDA: [b\"direct_recipient\", distribution, recipient] (closed)"
     ))]
     #[codama(account(name = "recipient", docs = "Wallet address of the recipient"))]
-    #[codama(account(
-        name = "payer",
-        writable,
-        docs = "Original payer of recipient PDA; receives rent refund"
-    ))]
+    #[codama(account(name = "payer", writable, docs = "Original payer of recipient PDA; receives rent refund"))]
     #[codama(account(name = "mint", docs = "SPL token mint"))]
     #[codama(account(
         name = "distribution_vault",
@@ -308,6 +304,49 @@ pub enum RewardsProgramInstruction {
         /// Revoke mode: NonVested (fair) or Full (clawback all)
         revoke_mode: RevokeMode,
     } = 9,
+
+    /// Revoke a claimant from a merkle distribution.
+    /// Authority provides the claimant's merkle leaf data for on-chain proof verification.
+    /// Mode 0 (NonVested): transfers vested-but-unclaimed tokens to claimant, unvested stays in vault.
+    /// Mode 1 (Full): no transfer to claimant, all unclaimed stays in vault.
+    #[codama(account(name = "authority", signer, docs = "Distribution authority; must match distribution.authority"))]
+    #[codama(account(name = "payer", signer, writable, docs = "Pays for PDA creation rent"))]
+    #[codama(account(name = "distribution", writable, docs = "PDA: MerkleDistribution account"))]
+    #[codama(account(
+        name = "claim_account",
+        docs = "PDA: [b\"merkle_claim\", distribution, claimant] (read-only, may not exist)"
+    ))]
+    #[codama(account(
+        name = "revocation_account",
+        writable,
+        docs = "PDA: [b\"merkle_revocation\", distribution, claimant] (created)"
+    ))]
+    #[codama(account(name = "claimant", docs = "Wallet address of the claimant being revoked"))]
+    #[codama(account(name = "mint", docs = "SPL token mint"))]
+    #[codama(account(
+        name = "distribution_vault",
+        writable,
+        docs = "ATA of distribution PDA for mint; source of transferred tokens"
+    ))]
+    #[codama(account(
+        name = "claimant_token_account",
+        writable,
+        docs = "Claimant's token account; destination for vested tokens (NonVested mode)"
+    ))]
+    #[codama(account(name = "system_program", docs = "System program"))]
+    #[codama(account(name = "token_program", docs = "SPL Token or Token-2022 program"))]
+    #[codama(account(name = "event_authority", docs = "PDA: [b\"__event_authority\"] for event CPI"))]
+    #[codama(account(name = "rewardsProgram", docs = "This program's ID"))]
+    RevokeMerkleClaim {
+        /// Revoke mode: NonVested (fair) or Full (clawback all)
+        revoke_mode: RevokeMode,
+        /// Total amount allocated to claimant (from merkle leaf)
+        total_amount: u64,
+        /// Vesting schedule (from merkle leaf)
+        schedule: VestingSchedule,
+        /// Merkle proof
+        proof: Vec<[u8; 32]>,
+    } = 10,
 
     /// Emit event data via CPI (prevents log truncation).
     #[codama(account(name = "event_authority", signer, docs = "PDA: [b\"__event_authority\"]; validates CPI caller"))]

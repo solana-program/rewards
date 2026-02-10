@@ -299,6 +299,24 @@
         },
         "kind": "accountNode",
         "name": "merkleDistribution"
+      },
+      {
+        "data": {
+          "fields": [
+            {
+              "kind": "structFieldTypeNode",
+              "name": "bump",
+              "type": {
+                "endian": "le",
+                "format": "u8",
+                "kind": "numberTypeNode"
+              }
+            }
+          ],
+          "kind": "structTypeNode"
+        },
+        "kind": "accountNode",
+        "name": "merkleRevocation"
       }
     ],
     "definedTypes": [
@@ -832,6 +850,18 @@
         "kind": "errorNode",
         "message": "Invalid revoke mode",
         "name": "invalidRevokeMode"
+      },
+      {
+        "code": 19,
+        "kind": "errorNode",
+        "message": "Claimant has already been revoked",
+        "name": "claimantAlreadyRevoked"
+      },
+      {
+        "code": 20,
+        "kind": "errorNode",
+        "message": "Claimant has already fully claimed",
+        "name": "claimantFullyClaimed"
       }
     ],
     "instructions": [
@@ -1685,6 +1715,15 @@
           },
           {
             "docs": [
+              "PDA: [b\"merkle_revocation\", distribution, claimant] (checked for existence)"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "revocationAccount"
+          },
+          {
+            "docs": [
               "SPL token mint"
             ],
             "isSigner": false,
@@ -2145,6 +2184,204 @@
         ],
         "kind": "instructionNode",
         "name": "revokeDirectRecipient"
+      },
+      {
+        "accounts": [
+          {
+            "docs": [
+              "Distribution authority; must match distribution.authority"
+            ],
+            "isSigner": true,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "authority"
+          },
+          {
+            "docs": [
+              "Pays for PDA creation rent"
+            ],
+            "isSigner": true,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "payer"
+          },
+          {
+            "docs": [
+              "PDA: MerkleDistribution account"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "distribution"
+          },
+          {
+            "docs": [
+              "PDA: [b\"merkle_claim\", distribution, claimant] (read-only, may not exist)"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "claimAccount"
+          },
+          {
+            "docs": [
+              "PDA: [b\"merkle_revocation\", distribution, claimant] (created)"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "revocationAccount"
+          },
+          {
+            "docs": [
+              "Wallet address of the claimant being revoked"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "claimant"
+          },
+          {
+            "docs": [
+              "SPL token mint"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "mint"
+          },
+          {
+            "docs": [
+              "ATA of distribution PDA for mint; source of transferred tokens"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "distributionVault"
+          },
+          {
+            "docs": [
+              "Claimant's token account; destination for vested tokens (NonVested mode)"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "claimantTokenAccount"
+          },
+          {
+            "docs": [
+              "System program"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "systemProgram"
+          },
+          {
+            "docs": [
+              "SPL Token or Token-2022 program"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "tokenProgram"
+          },
+          {
+            "docs": [
+              "PDA: [b\"__event_authority\"] for event CPI"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "eventAuthority"
+          },
+          {
+            "docs": [
+              "This program's ID"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "rewardsProgram"
+          }
+        ],
+        "arguments": [
+          {
+            "defaultValue": {
+              "kind": "numberValueNode",
+              "number": 10
+            },
+            "defaultValueStrategy": "omitted",
+            "kind": "instructionArgumentNode",
+            "name": "discriminator",
+            "type": {
+              "endian": "le",
+              "format": "u8",
+              "kind": "numberTypeNode"
+            }
+          },
+          {
+            "kind": "instructionArgumentNode",
+            "name": "revokeMode",
+            "type": {
+              "kind": "definedTypeLinkNode",
+              "name": "revokeMode"
+            }
+          },
+          {
+            "kind": "instructionArgumentNode",
+            "name": "totalAmount",
+            "type": {
+              "endian": "le",
+              "format": "u64",
+              "kind": "numberTypeNode"
+            }
+          },
+          {
+            "kind": "instructionArgumentNode",
+            "name": "schedule",
+            "type": {
+              "kind": "definedTypeLinkNode",
+              "name": "vestingSchedule"
+            }
+          },
+          {
+            "kind": "instructionArgumentNode",
+            "name": "proof",
+            "type": {
+              "count": {
+                "kind": "prefixedCountNode",
+                "prefix": {
+                  "endian": "le",
+                  "format": "u32",
+                  "kind": "numberTypeNode"
+                }
+              },
+              "item": {
+                "count": {
+                  "kind": "fixedCountNode",
+                  "value": 32
+                },
+                "item": {
+                  "endian": "le",
+                  "format": "u8",
+                  "kind": "numberTypeNode"
+                },
+                "kind": "arrayTypeNode"
+              },
+              "kind": "arrayTypeNode"
+            }
+          }
+        ],
+        "discriminators": [
+          {
+            "kind": "fieldDiscriminatorNode",
+            "name": "discriminator",
+            "offset": 0
+          }
+        ],
+        "kind": "instructionNode",
+        "name": "revokeMerkleClaim"
       },
       {
         "accounts": [

@@ -80,6 +80,14 @@ pub enum RewardsProgramError {
     /// (18) Invalid revoke mode
     #[error("Invalid revoke mode")]
     InvalidRevokeMode,
+
+    /// (19) Claimant has already been revoked
+    #[error("Claimant has already been revoked")]
+    ClaimantAlreadyRevoked,
+
+    /// (20) Claimant has already fully claimed
+    #[error("Claimant has already fully claimed")]
+    ClaimantFullyClaimed,
 }
 
 impl From<RewardsProgramError> for ProgramError {

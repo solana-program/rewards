@@ -124,17 +124,14 @@ impl<'a> RevokeDirectRecipientSetupBuilder<'a> {
     }
 
     pub fn build(self) -> RevokeDirectRecipientSetup {
-        let distribution_setup = CreateDirectDistributionSetup::builder(self.ctx)
-            .token_program(self.token_program)
-            .revocable(1)
-            .build();
+        let distribution_setup =
+            CreateDirectDistributionSetup::builder(self.ctx).token_program(self.token_program).revocable(1).build();
         let create_ix = distribution_setup.build_instruction(self.ctx);
         create_ix.send_expect_success(self.ctx);
 
         let current_ts = self.ctx.get_current_timestamp();
-        let schedule = self
-            .schedule
-            .unwrap_or(VestingSchedule::Linear { start_ts: current_ts, end_ts: current_ts + 86400 * 365 });
+        let schedule =
+            self.schedule.unwrap_or(VestingSchedule::Linear { start_ts: current_ts, end_ts: current_ts + 86400 * 365 });
 
         let (start_ts, end_ts) = match &schedule {
             VestingSchedule::Linear { start_ts, end_ts } => (*start_ts, *end_ts),

@@ -183,22 +183,14 @@ fn test_revoke_non_vested_at_midpoint() {
     );
 
     let vault_balance_after = ctx.get_token_balance(&setup.distribution_vault);
-    assert_eq!(
-        vault_balance_after,
-        vault_balance_before - expected_vested,
-        "Vault should decrease by vested amount"
-    );
+    assert_eq!(vault_balance_after, vault_balance_before - expected_vested, "Vault should decrease by vested amount");
 
     assert_account_closed(&ctx, &setup.recipient_pda);
 
     let dist_account = ctx.get_account(&setup.distribution_pda).expect("Distribution should exist");
     assert_eq!(dist_account.owner, PROGRAM_ID);
     let dist = DirectDistribution::from_bytes(&dist_account.data).expect("Should deserialize");
-    assert_eq!(
-        dist.total_allocated,
-        setup.amount - expected_unvested,
-        "total_allocated should have freed unvested"
-    );
+    assert_eq!(dist.total_allocated, setup.amount - expected_unvested, "total_allocated should have freed unvested");
     assert_eq!(dist.total_claimed, expected_vested, "total_claimed should include vested_unclaimed");
 }
 
@@ -277,9 +269,7 @@ fn test_revoke_after_full_vesting() {
 #[test]
 fn test_revoke_with_immediate_schedule() {
     let mut ctx = TestContext::new();
-    let setup = RevokeDirectRecipientSetup::builder(&mut ctx)
-        .schedule(VestingSchedule::Immediate)
-        .build();
+    let setup = RevokeDirectRecipientSetup::builder(&mut ctx).schedule(VestingSchedule::Immediate).build();
 
     let revoke_ix = setup.build_instruction(&ctx, RevokeMode::NonVested);
     revoke_ix.send_expect_success(&mut ctx);

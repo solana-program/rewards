@@ -43,13 +43,9 @@ pub fn process_revoke_direct_recipient(
 
     let current_ts = get_current_timestamp()?;
     let vested_amount = VestingParams::calculate_unlocked(&recipient, current_ts)?;
-    let vested_unclaimed = vested_amount
-        .checked_sub(recipient.claimed_amount)
-        .ok_or(RewardsProgramError::MathOverflow)?;
-    let unvested = recipient
-        .total_amount
-        .checked_sub(vested_amount)
-        .ok_or(RewardsProgramError::MathOverflow)?;
+    let vested_unclaimed =
+        vested_amount.checked_sub(recipient.claimed_amount).ok_or(RewardsProgramError::MathOverflow)?;
+    let unvested = recipient.total_amount.checked_sub(vested_amount).ok_or(RewardsProgramError::MathOverflow)?;
 
     let (vested_transferred, unvested_returned) = match ix.data.revoke_mode {
         RevokeMode::NonVested {} => {
@@ -69,26 +65,18 @@ pub fn process_revoke_direct_recipient(
                 })?;
             }
 
-            distribution.total_allocated = distribution
-                .total_allocated
-                .checked_sub(unvested)
-                .ok_or(RewardsProgramError::MathOverflow)?;
-            distribution.total_claimed = distribution
-                .total_claimed
-                .checked_add(vested_unclaimed)
-                .ok_or(RewardsProgramError::MathOverflow)?;
+            distribution.total_allocated =
+                distribution.total_allocated.checked_sub(unvested).ok_or(RewardsProgramError::MathOverflow)?;
+            distribution.total_claimed =
+                distribution.total_claimed.checked_add(vested_unclaimed).ok_or(RewardsProgramError::MathOverflow)?;
 
             (vested_unclaimed, unvested)
         }
         RevokeMode::Full {} => {
-            let total_freed = unvested
-                .checked_add(vested_unclaimed)
-                .ok_or(RewardsProgramError::MathOverflow)?;
+            let total_freed = unvested.checked_add(vested_unclaimed).ok_or(RewardsProgramError::MathOverflow)?;
 
-            distribution.total_allocated = distribution
-                .total_allocated
-                .checked_sub(total_freed)
-                .ok_or(RewardsProgramError::MathOverflow)?;
+            distribution.total_allocated =
+                distribution.total_allocated.checked_sub(total_freed).ok_or(RewardsProgramError::MathOverflow)?;
 
             (0, unvested)
         }
