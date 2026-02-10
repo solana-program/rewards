@@ -122,7 +122,7 @@ jobs:
           max_attempts: 3
           retry_wait_seconds: 30
           command: |
-            program-metadata write idl 7kw4iaikc9qTaFGcWx4wDiCXkkLddTb65HV8xH7KbHyc idl/rewards_program.json \
+            program-metadata write idl 3bwhqHWmDDh3gYZ8gFpSFBwwtyiSTfhRnWZo34nSjohX idl/rewards_program.json \
               --keypair deployer.json \
               --rpc ${{ secrets.DEVNET_RPC_URL }}
 

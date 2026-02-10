@@ -90,13 +90,13 @@ check-program-metadata:
 
 # Deploy IDL to devnet
 deploy-idl-devnet: check-program-metadata
-    program-metadata write idl 7kw4iaikc9qTaFGcWx4wDiCXkkLddTb65HV8xH7KbHyc idl/rewards_program.json \
+    program-metadata write idl 3bwhqHWmDDh3gYZ8gFpSFBwwtyiSTfhRnWZo34nSjohX idl/rewards_program.json \
         --keypair .keypairs/rewards-devnet-deployer.json \
         --rpc https://api.devnet.solana.com
 
 # Deploy IDL to mainnet
 deploy-idl-mainnet: check-program-metadata
-    program-metadata write idl 7kw4iaikc9qTaFGcWx4wDiCXkkLddTb65HV8xH7KbHyc idl/rewards_program.json \
+    program-metadata write idl 3bwhqHWmDDh3gYZ8gFpSFBwwtyiSTfhRnWZo34nSjohX idl/rewards_program.json \
         --keypair .keypairs/rewards-mainnet-deployer.json \
         --rpc https://api.mainnet-beta.solana.com
 
@@ -114,7 +114,7 @@ check-solana-verify:
 verify-mainnet: check-solana-verify
     solana-verify verify-from-repo \
         https://github.com/solana-program/rewards \
-        --program-id 7kw4iaikc9qTaFGcWx4wDiCXkkLddTb65HV8xH7KbHyc \
+        --program-id 3bwhqHWmDDh3gYZ8gFpSFBwwtyiSTfhRnWZo34nSjohX \
         --library-name rewards_program \
         --mount-path program \
         --remote \
