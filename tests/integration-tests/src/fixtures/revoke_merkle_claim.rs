@@ -26,6 +26,7 @@ pub struct RevokeMerkleClaimSetup {
     pub mint: Pubkey,
     pub distribution_vault: Pubkey,
     pub claimant_token_account: Pubkey,
+    pub authority_token_account: Pubkey,
     pub token_program: Pubkey,
     pub total_amount: u64,
     pub schedule: VestingSchedule,
@@ -62,6 +63,7 @@ impl RevokeMerkleClaimSetup {
             .mint(self.mint)
             .distribution_vault(self.distribution_vault)
             .claimant_token_account(self.claimant_token_account)
+            .authority_token_account(self.authority_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
             .revoke_mode(revoke_mode)
@@ -95,6 +97,7 @@ impl RevokeMerkleClaimSetup {
             .mint(self.mint)
             .distribution_vault(self.distribution_vault)
             .claimant_token_account(self.claimant_token_account)
+            .authority_token_account(self.authority_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
             .revoke_mode(revoke_mode)
@@ -144,6 +147,7 @@ pub struct RevokeMerkleClaimSetupBuilder<'a> {
     amount: u64,
     schedule: Option<VestingSchedule>,
     num_claimants: usize,
+    revocable: u8,
 }
 
 impl<'a> RevokeMerkleClaimSetupBuilder<'a> {
@@ -154,6 +158,7 @@ impl<'a> RevokeMerkleClaimSetupBuilder<'a> {
             amount: DEFAULT_REVOKE_MERKLE_AMOUNT,
             schedule: None,
             num_claimants: 2,
+            revocable: 3,
         }
     }
 
@@ -174,6 +179,11 @@ impl<'a> RevokeMerkleClaimSetupBuilder<'a> {
 
     pub fn num_claimants(mut self, num: usize) -> Self {
         self.num_claimants = num;
+        self
+    }
+
+    pub fn revocable(mut self, revocable: u8) -> Self {
+        self.revocable = revocable;
         self
     }
 
@@ -205,6 +215,7 @@ impl<'a> RevokeMerkleClaimSetupBuilder<'a> {
             .total_amount(total_distribution_amount)
             .merkle_root(merkle_tree.root)
             .token_program(self.token_program)
+            .revocable(self.revocable)
             .build();
         let create_ix = distribution_setup.build_instruction(self.ctx);
         create_ix.send_expect_success(self.ctx);
@@ -230,6 +241,7 @@ impl<'a> RevokeMerkleClaimSetupBuilder<'a> {
             mint: distribution_setup.mint.pubkey(),
             distribution_vault: distribution_setup.distribution_vault,
             claimant_token_account,
+            authority_token_account: distribution_setup.authority_token_account,
             token_program: self.token_program,
             total_amount: self.amount,
             schedule,
@@ -264,16 +276,17 @@ impl InstructionTestFixture for RevokeMerkleClaimFixture {
     /// 4: revocation_account
     /// 7: distribution_vault
     /// 8: claimant_token_account
+    /// 9: authority_token_account
     fn required_writable() -> &'static [usize] {
-        &[1, 2, 4, 7, 8]
+        &[1, 2, 4, 7, 8, 9]
     }
 
     fn system_program_index() -> Option<usize> {
-        Some(9)
+        Some(10)
     }
 
     fn current_program_index() -> Option<usize> {
-        Some(12)
+        Some(13)
     }
 
     fn data_len() -> usize {

@@ -19,6 +19,7 @@ pub struct RevokeMerkleClaimAccounts<'a> {
     pub mint: &'a AccountView,
     pub distribution_vault: &'a AccountView,
     pub claimant_token_account: &'a AccountView,
+    pub authority_token_account: &'a AccountView,
     pub system_program: &'a AccountView,
     pub token_program: &'a AccountView,
     pub event_authority: &'a AccountView,
@@ -30,7 +31,7 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeMerkleClaimAccounts<'a> {
 
     #[inline(always)]
     fn try_from(accounts: &'a [AccountView]) -> Result<Self, Self::Error> {
-        let [authority, payer, distribution, claim_account, revocation_account, claimant, mint, distribution_vault, claimant_token_account, system_program, token_program, event_authority, program] =
+        let [authority, payer, distribution, claim_account, revocation_account, claimant, mint, distribution_vault, claimant_token_account, authority_token_account, system_program, token_program, event_authority, program] =
             accounts
         else {
             return Err(ProgramError::NotEnoughAccountKeys);
@@ -45,6 +46,7 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeMerkleClaimAccounts<'a> {
         verify_writable(revocation_account, true)?;
         verify_writable(distribution_vault, true)?;
         verify_writable(claimant_token_account, true)?;
+        verify_writable(authority_token_account, true)?;
 
         // 2b. Validate read-only accounts
         verify_readonly(claim_account)?;
@@ -64,6 +66,7 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeMerkleClaimAccounts<'a> {
         // 5. Validate token account ownership
         verify_owned_by(mint, token_program.address())?;
         verify_owned_by(claimant_token_account, token_program.address())?;
+        verify_owned_by(authority_token_account, token_program.address())?;
 
         // 6. Validate distribution_vault ATA
         validate_associated_token_account(distribution_vault, distribution.address(), mint, token_program)?;
@@ -78,6 +81,7 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeMerkleClaimAccounts<'a> {
             mint,
             distribution_vault,
             claimant_token_account,
+            authority_token_account,
             system_program,
             token_program,
             event_authority,

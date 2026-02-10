@@ -216,11 +216,20 @@
             },
             {
               "kind": "structFieldTypeNode",
+              "name": "revocable",
+              "type": {
+                "endian": "le",
+                "format": "u8",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
               "name": "padding",
               "type": {
                 "count": {
                   "kind": "fixedCountNode",
-                  "value": 7
+                  "value": 6
                 },
                 "item": {
                   "endian": "le",
@@ -856,12 +865,6 @@
         "kind": "errorNode",
         "message": "Claimant has already been revoked",
         "name": "claimantAlreadyRevoked"
-      },
-      {
-        "code": 20,
-        "kind": "errorNode",
-        "message": "Claimant has already fully claimed",
-        "name": "claimantFullyClaimed"
       }
     ],
     "instructions": [
@@ -1623,6 +1626,15 @@
           },
           {
             "kind": "instructionArgumentNode",
+            "name": "revocable",
+            "type": {
+              "endian": "le",
+              "format": "u8",
+              "kind": "numberTypeNode"
+            }
+          },
+          {
+            "kind": "instructionArgumentNode",
             "name": "amount",
             "type": {
               "endian": "le",
@@ -2094,7 +2106,7 @@
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
-            "name": "payer"
+            "name": "originalPayer"
           },
           {
             "docs": [
@@ -2122,6 +2134,15 @@
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "recipientTokenAccount"
+          },
+          {
+            "docs": [
+              "Authority's token account; destination for returned tokens"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "authorityTokenAccount"
           },
           {
             "docs": [
@@ -2267,6 +2288,15 @@
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "claimantTokenAccount"
+          },
+          {
+            "docs": [
+              "Authority's token account; destination for returned tokens"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "authorityTokenAccount"
           },
           {
             "docs": [

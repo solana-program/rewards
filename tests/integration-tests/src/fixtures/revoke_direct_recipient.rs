@@ -23,6 +23,7 @@ pub struct RevokeDirectRecipientSetup {
     pub mint: Pubkey,
     pub distribution_vault: Pubkey,
     pub recipient_token_account: Pubkey,
+    pub authority_token_account: Pubkey,
     pub token_program: Pubkey,
     pub amount: u64,
     pub start_ts: i64,
@@ -51,10 +52,11 @@ impl RevokeDirectRecipientSetup {
             .distribution(self.distribution_pda)
             .recipient_account(self.recipient_pda)
             .recipient(self.recipient.pubkey())
-            .payer(self.payer.pubkey())
+            .original_payer(self.payer.pubkey())
             .mint(self.mint)
             .distribution_vault(self.distribution_vault)
             .recipient_token_account(self.recipient_token_account)
+            .authority_token_account(self.authority_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
             .revoke_mode(revoke_mode);
@@ -80,10 +82,11 @@ impl RevokeDirectRecipientSetup {
             .distribution(self.distribution_pda)
             .recipient_account(self.recipient_pda)
             .recipient(self.recipient.pubkey())
-            .payer(self.payer.pubkey())
+            .original_payer(self.payer.pubkey())
             .mint(self.mint)
             .distribution_vault(self.distribution_vault)
             .recipient_token_account(self.recipient_token_account)
+            .authority_token_account(self.authority_token_account)
             .token_program(self.token_program)
             .event_authority(event_authority)
             .revoke_mode(revoke_mode);
@@ -101,11 +104,12 @@ pub struct RevokeDirectRecipientSetupBuilder<'a> {
     token_program: Pubkey,
     amount: u64,
     schedule: Option<VestingSchedule>,
+    revocable: u8,
 }
 
 impl<'a> RevokeDirectRecipientSetupBuilder<'a> {
     fn new(ctx: &'a mut TestContext) -> Self {
-        Self { ctx, token_program: TOKEN_PROGRAM_ID, amount: DEFAULT_REVOKE_AMOUNT, schedule: None }
+        Self { ctx, token_program: TOKEN_PROGRAM_ID, amount: DEFAULT_REVOKE_AMOUNT, schedule: None, revocable: 3 }
     }
 
     pub fn token_2022(mut self) -> Self {
@@ -123,9 +127,16 @@ impl<'a> RevokeDirectRecipientSetupBuilder<'a> {
         self
     }
 
+    pub fn revocable(mut self, revocable: u8) -> Self {
+        self.revocable = revocable;
+        self
+    }
+
     pub fn build(self) -> RevokeDirectRecipientSetup {
-        let distribution_setup =
-            CreateDirectDistributionSetup::builder(self.ctx).token_program(self.token_program).revocable(1).build();
+        let distribution_setup = CreateDirectDistributionSetup::builder(self.ctx)
+            .token_program(self.token_program)
+            .revocable(self.revocable)
+            .build();
         let create_ix = distribution_setup.build_instruction(self.ctx);
         create_ix.send_expect_success(self.ctx);
 
@@ -191,6 +202,7 @@ impl<'a> RevokeDirectRecipientSetupBuilder<'a> {
             mint: distribution_setup.mint.pubkey(),
             distribution_vault: distribution_setup.distribution_vault,
             recipient_token_account,
+            authority_token_account,
             token_program: self.token_program,
             amount: self.amount,
             start_ts,
@@ -218,11 +230,12 @@ impl InstructionTestFixture for RevokeDirectRecipientFixture {
     /// Account indices that must be writable:
     /// 1: distribution
     /// 2: recipient_account
-    /// 4: payer
+    /// 4: original_payer
     /// 6: vault
     /// 7: recipient_token_account
+    /// 8: authority_token_account
     fn required_writable() -> &'static [usize] {
-        &[1, 2, 4, 6, 7]
+        &[1, 2, 4, 6, 7, 8]
     }
 
     fn system_program_index() -> Option<usize> {
@@ -230,7 +243,7 @@ impl InstructionTestFixture for RevokeDirectRecipientFixture {
     }
 
     fn current_program_index() -> Option<usize> {
-        Some(10)
+        Some(11)
     }
 
     fn data_len() -> usize {

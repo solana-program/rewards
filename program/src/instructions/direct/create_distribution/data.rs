@@ -27,9 +27,6 @@ impl<'a> InstructionData<'a> for CreateDirectDistributionData {
     const LEN: usize = 10; // bump(1) + revocable(1) + clawback_ts(8)
 
     fn validate(&self) -> Result<(), ProgramError> {
-        if self.revocable > 1 {
-            return Err(ProgramError::InvalidInstructionData);
-        }
         Ok(())
     }
 }
@@ -93,16 +90,12 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_revocable_one() {
-        let data = make_data(255, 1, 0);
-        let parsed = CreateDirectDistributionData::try_from(&data[..]).unwrap();
-        assert!(parsed.validate().is_ok());
-    }
-
-    #[test]
-    fn test_validate_revocable_invalid() {
-        let data = make_data(255, 2, 0);
-        let parsed = CreateDirectDistributionData::try_from(&data[..]).unwrap();
-        assert_eq!(parsed.validate().err(), Some(ProgramError::InvalidInstructionData));
+    fn test_validate_revocable_bitmask_values() {
+        for revocable in [0, 1, 2, 3, 255] {
+            let data = make_data(255, revocable, 0);
+            let parsed = CreateDirectDistributionData::try_from(&data[..]).unwrap();
+            assert!(parsed.validate().is_ok());
+            assert_eq!(parsed.revocable, revocable);
+        }
     }
 }

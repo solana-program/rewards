@@ -13,10 +13,11 @@ pub struct RevokeDirectRecipientAccounts<'a> {
     pub distribution: &'a AccountView,
     pub recipient_account: &'a AccountView,
     pub recipient: &'a AccountView,
-    pub payer: &'a AccountView,
+    pub original_payer: &'a AccountView,
     pub mint: &'a AccountView,
     pub distribution_vault: &'a AccountView,
     pub recipient_token_account: &'a AccountView,
+    pub authority_token_account: &'a AccountView,
     pub token_program: &'a AccountView,
     pub event_authority: &'a AccountView,
     pub program: &'a AccountView,
@@ -27,7 +28,7 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeDirectRecipientAccounts<'a> {
 
     #[inline(always)]
     fn try_from(accounts: &'a [AccountView]) -> Result<Self, Self::Error> {
-        let [authority, distribution, recipient_account, recipient, payer, mint, distribution_vault, recipient_token_account, token_program, event_authority, program] =
+        let [authority, distribution, recipient_account, recipient, original_payer, mint, distribution_vault, recipient_token_account, authority_token_account, token_program, event_authority, program] =
             accounts
         else {
             return Err(ProgramError::NotEnoughAccountKeys);
@@ -39,9 +40,10 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeDirectRecipientAccounts<'a> {
         // 2. Validate writable
         verify_writable(distribution, true)?;
         verify_writable(recipient_account, true)?;
-        verify_writable(payer, true)?;
+        verify_writable(original_payer, true)?;
         verify_writable(distribution_vault, true)?;
         verify_writable(recipient_token_account, true)?;
+        verify_writable(authority_token_account, true)?;
 
         // 2b. Validate read-only accounts
         verify_readonly(recipient)?;
@@ -59,6 +61,7 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeDirectRecipientAccounts<'a> {
         // 5. Validate token account ownership
         verify_owned_by(mint, token_program.address())?;
         verify_owned_by(recipient_token_account, token_program.address())?;
+        verify_owned_by(authority_token_account, token_program.address())?;
 
         // 6. Validate distribution_vault ATA
         validate_associated_token_account(distribution_vault, distribution.address(), mint, token_program)?;
@@ -68,10 +71,11 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeDirectRecipientAccounts<'a> {
             distribution,
             recipient_account,
             recipient,
-            payer,
+            original_payer,
             mint,
             distribution_vault,
             recipient_token_account,
+            authority_token_account,
             token_program,
             event_authority,
             program,

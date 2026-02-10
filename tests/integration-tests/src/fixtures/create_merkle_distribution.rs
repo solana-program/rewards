@@ -20,6 +20,7 @@ pub struct CreateMerkleDistributionSetup {
     pub authority_token_account: Pubkey,
     pub distribution_pda: Pubkey,
     pub bump: u8,
+    pub revocable: u8,
     pub amount: u64,
     pub total_amount: u64,
     pub merkle_root: [u8; 32],
@@ -55,6 +56,7 @@ impl CreateMerkleDistributionSetup {
             .token_program(self.token_program)
             .event_authority(event_authority)
             .bump(self.bump)
+            .revocable(self.revocable)
             .amount(self.amount)
             .merkle_root(self.merkle_root)
             .total_amount(self.total_amount)
@@ -86,6 +88,7 @@ impl CreateMerkleDistributionSetup {
             .token_program(self.token_program)
             .event_authority(event_authority)
             .bump(self.bump)
+            .revocable(self.revocable)
             .amount(self.amount)
             .merkle_root(self.merkle_root)
             .total_amount(self.total_amount)
@@ -103,6 +106,7 @@ pub struct CreateMerkleDistributionSetupBuilder<'a> {
     ctx: &'a mut TestContext,
     token_program: Pubkey,
     amount: u64,
+    revocable: u8,
     total_amount: Option<u64>,
     merkle_root: Option<[u8; 32]>,
     clawback_ts: Option<i64>,
@@ -114,6 +118,7 @@ impl<'a> CreateMerkleDistributionSetupBuilder<'a> {
             ctx,
             token_program: TOKEN_PROGRAM_ID,
             amount: DEFAULT_MERKLE_DISTRIBUTION_AMOUNT,
+            revocable: 0,
             total_amount: None,
             merkle_root: None,
             clawback_ts: None,
@@ -127,6 +132,11 @@ impl<'a> CreateMerkleDistributionSetupBuilder<'a> {
 
     pub fn token_program(mut self, program: Pubkey) -> Self {
         self.token_program = program;
+        self
+    }
+
+    pub fn revocable(mut self, revocable: u8) -> Self {
+        self.revocable = revocable;
         self
     }
 
@@ -181,6 +191,7 @@ impl<'a> CreateMerkleDistributionSetupBuilder<'a> {
             authority_token_account,
             distribution_pda,
             bump,
+            revocable: self.revocable,
             amount: self.amount,
             total_amount,
             merkle_root,
@@ -226,6 +237,6 @@ impl InstructionTestFixture for CreateMerkleDistributionFixture {
     }
 
     fn data_len() -> usize {
-        1 + 1 + 8 + 32 + 8 + 8 // discriminator + bump + amount + merkle_root + total_amount + clawback_ts
+        1 + 1 + 1 + 8 + 32 + 8 + 8 // discriminator + bump + revocable + amount + merkle_root + total_amount + clawback_ts
     }
 }

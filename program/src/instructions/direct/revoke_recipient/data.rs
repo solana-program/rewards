@@ -13,7 +13,7 @@ impl<'a> TryFrom<&'a [u8]> for RevokeDirectRecipientData {
     fn try_from(data: &'a [u8]) -> Result<Self, Self::Error> {
         require_len!(data, Self::LEN);
 
-        let revoke_mode = RevokeMode::from_byte(data[0])?;
+        let revoke_mode = RevokeMode::try_from(data[0])?;
 
         Ok(Self { revoke_mode })
     }

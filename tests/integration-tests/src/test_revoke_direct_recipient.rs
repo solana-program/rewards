@@ -120,6 +120,7 @@ fn test_revoke_not_revocable() {
         mint: distribution_setup.mint.pubkey(),
         distribution_vault: distribution_setup.distribution_vault,
         recipient_token_account,
+        authority_token_account,
         token_program: distribution_setup.token_program,
         amount: 1_000_000,
         start_ts: current_ts,
@@ -168,6 +169,7 @@ fn test_revoke_non_vested_at_midpoint() {
 
     let vault_balance_before = ctx.get_token_balance(&setup.distribution_vault);
     let recipient_balance_before = ctx.get_token_balance(&setup.recipient_token_account);
+    let authority_balance_before = ctx.get_token_balance(&setup.authority_token_account);
 
     let revoke_ix = setup.build_instruction(&ctx, RevokeMode::NonVested);
     revoke_ix.send_expect_success(&mut ctx);
@@ -182,8 +184,19 @@ fn test_revoke_non_vested_at_midpoint() {
         "Recipient should receive vested tokens"
     );
 
+    let authority_balance_after = ctx.get_token_balance(&setup.authority_token_account);
+    assert_eq!(
+        authority_balance_after,
+        authority_balance_before + expected_unvested,
+        "Authority should receive unvested tokens"
+    );
+
     let vault_balance_after = ctx.get_token_balance(&setup.distribution_vault);
-    assert_eq!(vault_balance_after, vault_balance_before - expected_vested, "Vault should decrease by vested amount");
+    assert_eq!(
+        vault_balance_after,
+        vault_balance_before - expected_vested - expected_unvested,
+        "Vault should decrease by vested + unvested"
+    );
 
     assert_account_closed(&ctx, &setup.recipient_pda);
 
@@ -204,18 +217,31 @@ fn test_revoke_full_at_midpoint() {
 
     let vault_balance_before = ctx.get_token_balance(&setup.distribution_vault);
     let recipient_balance_before = ctx.get_token_balance(&setup.recipient_token_account);
+    let authority_balance_before = ctx.get_token_balance(&setup.authority_token_account);
 
     let revoke_ix = setup.build_instruction(&ctx, RevokeMode::Full);
     revoke_ix.send_expect_success(&mut ctx);
 
     let expected_vested = expected_linear_unlock(setup.amount, setup.start_ts, setup.end_ts, midpoint);
     let expected_unvested = setup.amount - expected_vested;
+    let total_freed = expected_unvested + expected_vested;
 
     let recipient_balance_after = ctx.get_token_balance(&setup.recipient_token_account);
     assert_eq!(recipient_balance_after, recipient_balance_before, "Recipient should receive nothing in Full mode");
 
+    let authority_balance_after = ctx.get_token_balance(&setup.authority_token_account);
+    assert_eq!(
+        authority_balance_after,
+        authority_balance_before + total_freed,
+        "Authority should receive all unclaimed tokens in Full mode"
+    );
+
     let vault_balance_after = ctx.get_token_balance(&setup.distribution_vault);
-    assert_eq!(vault_balance_after, vault_balance_before, "Vault balance should not change in Full mode");
+    assert_eq!(
+        vault_balance_after,
+        vault_balance_before - total_freed,
+        "Vault should decrease by total freed in Full mode"
+    );
 
     assert_account_closed(&ctx, &setup.recipient_pda);
 
@@ -362,4 +388,82 @@ fn test_revoke_freed_allocation_allows_new_recipient() {
         name: "AddDirectRecipient",
     };
     add_ix.send_expect_success(&mut ctx);
+}
+
+// ── Bitmask permission tests ──────────────────────────────────────
+
+#[test]
+fn test_revoke_non_vested_rejected_when_only_full_bit_set() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeDirectRecipientSetup::builder(&mut ctx).revocable(2).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::NonVested);
+    let error = revoke_ix.send_expect_error(&mut ctx);
+    assert_rewards_error(error, RewardsError::DistributionNotRevocable);
+}
+
+#[test]
+fn test_revoke_full_rejected_when_only_non_vested_bit_set() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeDirectRecipientSetup::builder(&mut ctx).revocable(1).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::Full);
+    let error = revoke_ix.send_expect_error(&mut ctx);
+    assert_rewards_error(error, RewardsError::DistributionNotRevocable);
+}
+
+#[test]
+fn test_revoke_both_modes_succeed_when_revocable_3() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeDirectRecipientSetup::builder(&mut ctx).revocable(3).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::NonVested);
+    revoke_ix.send_expect_success(&mut ctx);
+}
+
+#[test]
+fn test_revoke_full_succeeds_when_revocable_3() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeDirectRecipientSetup::builder(&mut ctx).revocable(3).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::Full);
+    revoke_ix.send_expect_success(&mut ctx);
+}
+
+#[test]
+fn test_revoke_non_vested_succeeds_when_only_non_vested_bit_set() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeDirectRecipientSetup::builder(&mut ctx).revocable(1).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::NonVested);
+    revoke_ix.send_expect_success(&mut ctx);
+}
+
+#[test]
+fn test_revoke_full_succeeds_when_only_full_bit_set() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeDirectRecipientSetup::builder(&mut ctx).revocable(2).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::Full);
+    revoke_ix.send_expect_success(&mut ctx);
+}
+
+#[test]
+fn test_revoke_all_modes_rejected_when_revocable_0() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeDirectRecipientSetup::builder(&mut ctx).revocable(0).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::NonVested);
+    let error = revoke_ix.send_expect_error(&mut ctx);
+    assert_rewards_error(error, RewardsError::DistributionNotRevocable);
+}
+
+#[test]
+fn test_revoke_full_rejected_when_revocable_0() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeDirectRecipientSetup::builder(&mut ctx).revocable(0).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::Full);
+    let error = revoke_ix.send_expect_error(&mut ctx);
+    assert_rewards_error(error, RewardsError::DistributionNotRevocable);
 }

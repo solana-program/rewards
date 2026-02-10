@@ -145,11 +145,13 @@ fn test_revoke_merkle_non_vested_at_midpoint() {
 
     let vault_balance_before = ctx.get_token_balance(&setup.distribution_vault);
     let claimant_balance_before = ctx.get_token_balance(&setup.claimant_token_account);
+    let authority_balance_before = ctx.get_token_balance(&setup.authority_token_account);
 
     let revoke_ix = setup.build_instruction(&ctx, RevokeMode::NonVested);
     revoke_ix.send_expect_success(&mut ctx);
 
     let expected_vested = expected_linear_unlock(setup.total_amount, setup.start_ts, setup.end_ts, midpoint);
+    let expected_unvested = setup.total_amount - expected_vested;
 
     let claimant_balance_after = ctx.get_token_balance(&setup.claimant_token_account);
     assert_eq!(
@@ -158,8 +160,19 @@ fn test_revoke_merkle_non_vested_at_midpoint() {
         "Claimant should receive vested tokens"
     );
 
+    let authority_balance_after = ctx.get_token_balance(&setup.authority_token_account);
+    assert_eq!(
+        authority_balance_after,
+        authority_balance_before + expected_unvested,
+        "Authority should receive unvested tokens"
+    );
+
     let vault_balance_after = ctx.get_token_balance(&setup.distribution_vault);
-    assert_eq!(vault_balance_after, vault_balance_before - expected_vested, "Vault should decrease by vested amount");
+    assert_eq!(
+        vault_balance_after,
+        vault_balance_before - expected_vested - expected_unvested,
+        "Vault should decrease by vested + unvested"
+    );
 
     // Distribution total_claimed should reflect vested transfer
     let dist_account = ctx.get_account(&setup.distribution_pda).expect("Distribution should exist");
@@ -195,15 +208,31 @@ fn test_revoke_merkle_full_at_midpoint() {
 
     let vault_balance_before = ctx.get_token_balance(&setup.distribution_vault);
     let claimant_balance_before = ctx.get_token_balance(&setup.claimant_token_account);
+    let authority_balance_before = ctx.get_token_balance(&setup.authority_token_account);
 
     let revoke_ix = setup.build_instruction(&ctx, RevokeMode::Full);
     revoke_ix.send_expect_success(&mut ctx);
 
+    let expected_vested = expected_linear_unlock(setup.total_amount, setup.start_ts, setup.end_ts, midpoint);
+    let expected_unvested = setup.total_amount - expected_vested;
+    let total_freed = expected_unvested + expected_vested;
+
     let claimant_balance_after = ctx.get_token_balance(&setup.claimant_token_account);
     assert_eq!(claimant_balance_after, claimant_balance_before, "Claimant should receive nothing in Full mode");
 
+    let authority_balance_after = ctx.get_token_balance(&setup.authority_token_account);
+    assert_eq!(
+        authority_balance_after,
+        authority_balance_before + total_freed,
+        "Authority should receive all unclaimed tokens in Full mode"
+    );
+
     let vault_balance_after = ctx.get_token_balance(&setup.distribution_vault);
-    assert_eq!(vault_balance_after, vault_balance_before, "Vault should not change in Full mode");
+    assert_eq!(
+        vault_balance_after,
+        vault_balance_before - total_freed,
+        "Vault should decrease by total freed in Full mode"
+    );
 
     let dist_account = ctx.get_account(&setup.distribution_pda).expect("Distribution should exist");
     let dist = MerkleDistribution::from_bytes(&dist_account.data).expect("Should deserialize");
@@ -329,4 +358,82 @@ fn test_revoke_merkle_with_token_2022() {
     let expected_vested = expected_linear_unlock(setup.total_amount, setup.start_ts, setup.end_ts, midpoint);
     let claimant_balance = ctx.get_token_balance(&setup.claimant_token_account);
     assert_eq!(claimant_balance, expected_vested, "Token-2022 revoke should work");
+}
+
+// ── Bitmask permission tests ──────────────────────────────────────
+
+#[test]
+fn test_revoke_merkle_non_vested_rejected_when_only_full_bit_set() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeMerkleClaimSetup::builder(&mut ctx).revocable(2).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::NonVested);
+    let error = revoke_ix.send_expect_error(&mut ctx);
+    assert_rewards_error(error, RewardsError::DistributionNotRevocable);
+}
+
+#[test]
+fn test_revoke_merkle_full_rejected_when_only_non_vested_bit_set() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeMerkleClaimSetup::builder(&mut ctx).revocable(1).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::Full);
+    let error = revoke_ix.send_expect_error(&mut ctx);
+    assert_rewards_error(error, RewardsError::DistributionNotRevocable);
+}
+
+#[test]
+fn test_revoke_merkle_non_vested_succeeds_when_revocable_3() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeMerkleClaimSetup::builder(&mut ctx).revocable(3).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::NonVested);
+    revoke_ix.send_expect_success(&mut ctx);
+}
+
+#[test]
+fn test_revoke_merkle_full_succeeds_when_revocable_3() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeMerkleClaimSetup::builder(&mut ctx).revocable(3).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::Full);
+    revoke_ix.send_expect_success(&mut ctx);
+}
+
+#[test]
+fn test_revoke_merkle_non_vested_succeeds_when_only_non_vested_bit_set() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeMerkleClaimSetup::builder(&mut ctx).revocable(1).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::NonVested);
+    revoke_ix.send_expect_success(&mut ctx);
+}
+
+#[test]
+fn test_revoke_merkle_full_succeeds_when_only_full_bit_set() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeMerkleClaimSetup::builder(&mut ctx).revocable(2).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::Full);
+    revoke_ix.send_expect_success(&mut ctx);
+}
+
+#[test]
+fn test_revoke_merkle_all_modes_rejected_when_revocable_0() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeMerkleClaimSetup::builder(&mut ctx).revocable(0).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::NonVested);
+    let error = revoke_ix.send_expect_error(&mut ctx);
+    assert_rewards_error(error, RewardsError::DistributionNotRevocable);
+}
+
+#[test]
+fn test_revoke_merkle_full_rejected_when_revocable_0() {
+    let mut ctx = TestContext::new();
+    let setup = RevokeMerkleClaimSetup::builder(&mut ctx).revocable(0).build();
+
+    let revoke_ix = setup.build_instruction(&ctx, RevokeMode::Full);
+    let error = revoke_ix.send_expect_error(&mut ctx);
+    assert_rewards_error(error, RewardsError::DistributionNotRevocable);
 }

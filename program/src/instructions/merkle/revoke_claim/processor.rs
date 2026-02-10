@@ -35,6 +35,10 @@ pub fn process_revoke_merkle_claim(
 
     distribution.validate_authority(ix.accounts.authority.address())?;
 
+    if ix.data.revoke_mode.is_disabled_by(distribution.revocable) {
+        return Err(RewardsProgramError::DistributionNotRevocable.into());
+    }
+
     // Verify merkle proof: the authority provides the claimant's leaf data
     let schedule_bytes = ix.data.schedule.to_bytes();
     let leaf = compute_leaf_hash(ix.accounts.claimant.address(), ix.data.total_amount, &schedule_bytes);
@@ -73,10 +77,11 @@ pub fn process_revoke_merkle_claim(
     let unvested = ix.data.total_amount.checked_sub(vested_amount).ok_or(RewardsProgramError::MathOverflow)?;
 
     // Apply revoke mode
+    let decimals = get_mint_decimals(ix.accounts.mint)?;
+
     let (vested_transferred, unvested_returned) = match ix.data.revoke_mode {
         RevokeMode::NonVested {} => {
             if vested_unclaimed > 0 {
-                let decimals = get_mint_decimals(ix.accounts.mint)?;
                 distribution.with_signer(|signers| {
                     TransferChecked {
                         from: ix.accounts.distribution_vault,
@@ -95,8 +100,26 @@ pub fn process_revoke_merkle_claim(
 
             (vested_unclaimed, unvested)
         }
-        RevokeMode::Full {} => (0, unvested),
+        RevokeMode::Full {} => {
+            let total_freed = unvested.checked_add(vested_unclaimed).ok_or(RewardsProgramError::MathOverflow)?;
+            (0, total_freed)
+        }
     };
+
+    if unvested_returned > 0 {
+        distribution.with_signer(|signers| {
+            TransferChecked {
+                from: ix.accounts.distribution_vault,
+                mint: ix.accounts.mint,
+                to: ix.accounts.authority_token_account,
+                authority: ix.accounts.distribution,
+                amount: unvested_returned,
+                decimals,
+                token_program: ix.accounts.token_program.address(),
+            }
+            .invoke_signed(signers)
+        })?;
+    }
 
     // Write updated distribution
     let mut distribution_data = ix.accounts.distribution.try_borrow_mut()?;

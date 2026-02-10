@@ -26,7 +26,7 @@ pub fn process_revoke_direct_recipient(
 
     distribution.validate_authority(ix.accounts.authority.address())?;
 
-    if distribution.revocable != 1 {
+    if ix.data.revoke_mode.is_disabled_by(distribution.revocable) {
         return Err(RewardsProgramError::DistributionNotRevocable.into());
     }
 
@@ -37,7 +37,7 @@ pub fn process_revoke_direct_recipient(
     recipient.validate_distribution(ix.accounts.distribution.address())?;
     recipient.validate_recipient(ix.accounts.recipient.address())?;
 
-    if &recipient.payer != ix.accounts.payer.address() {
+    if &recipient.payer != ix.accounts.original_payer.address() {
         return Err(pinocchio::error::ProgramError::InvalidAccountData);
     }
 
@@ -47,10 +47,11 @@ pub fn process_revoke_direct_recipient(
         vested_amount.checked_sub(recipient.claimed_amount).ok_or(RewardsProgramError::MathOverflow)?;
     let unvested = recipient.total_amount.checked_sub(vested_amount).ok_or(RewardsProgramError::MathOverflow)?;
 
+    let decimals = get_mint_decimals(ix.accounts.mint)?;
+
     let (vested_transferred, unvested_returned) = match ix.data.revoke_mode {
         RevokeMode::NonVested {} => {
             if vested_unclaimed > 0 {
-                let decimals = get_mint_decimals(ix.accounts.mint)?;
                 distribution.with_signer(|signers| {
                     TransferChecked {
                         from: ix.accounts.distribution_vault,
@@ -78,15 +79,30 @@ pub fn process_revoke_direct_recipient(
             distribution.total_allocated =
                 distribution.total_allocated.checked_sub(total_freed).ok_or(RewardsProgramError::MathOverflow)?;
 
-            (0, unvested)
+            (0, total_freed)
         }
     };
+
+    if unvested_returned > 0 {
+        distribution.with_signer(|signers| {
+            TransferChecked {
+                from: ix.accounts.distribution_vault,
+                mint: ix.accounts.mint,
+                to: ix.accounts.authority_token_account,
+                authority: ix.accounts.distribution,
+                amount: unvested_returned,
+                decimals,
+                token_program: ix.accounts.token_program.address(),
+            }
+            .invoke_signed(signers)
+        })?;
+    }
 
     let mut distribution_data = ix.accounts.distribution.try_borrow_mut()?;
     distribution.write_to_slice(&mut distribution_data)?;
     drop(distribution_data);
 
-    close_pda_account(ix.accounts.recipient_account, ix.accounts.payer)?;
+    close_pda_account(ix.accounts.recipient_account, ix.accounts.original_payer)?;
 
     let event = RecipientRevokedEvent::new(
         *ix.accounts.distribution.address(),

@@ -30,7 +30,7 @@ impl<'a> TryFrom<&'a [u8]> for RevokeMerkleClaimData {
         // Minimum: revoke_mode(1) + total_amount(8) + schedule(1) + proof_len(4) = 14
         require_len!(data, Self::LEN);
 
-        let revoke_mode = RevokeMode::from_byte(data[0])?;
+        let revoke_mode = RevokeMode::try_from(data[0])?;
         let total_amount = u64::from_le_bytes(data[1..9].try_into().map_err(|_| ProgramError::InvalidInstructionData)?);
 
         // Variable-length fields

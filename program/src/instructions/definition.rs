@@ -30,7 +30,7 @@ pub enum RewardsProgramInstruction {
     CreateDirectDistribution {
         /// Bump for the distribution PDA
         bump: u8,
-        /// Whether recipients can be individually revoked (0 = no, 1 = yes)
+        /// Bitmask of allowed revoke modes (0 = not revocable, bit 0 = NonVested, bit 1 = Full)
         revocable: u8,
         /// Timestamp after which authority can close the distribution (0 = no gate)
         clawback_ts: i64,
@@ -179,6 +179,8 @@ pub enum RewardsProgramInstruction {
     CreateMerkleDistribution {
         /// Bump for the distribution PDA
         bump: u8,
+        /// Bitmask of allowed revoke modes (0 = not revocable, bit 0 = NonVested, bit 1 = Full)
+        revocable: u8,
         /// Amount of tokens to deposit in distribution vault
         amount: u64,
         /// Merkle root hash
@@ -275,8 +277,8 @@ pub enum RewardsProgramInstruction {
     CloseMerkleDistribution {} = 8,
 
     /// Revoke a recipient from a revocable direct distribution.
-    /// Mode 0 (NonVested): transfers vested-but-unclaimed tokens to recipient, frees unvested to vault pool.
-    /// Mode 1 (Full): returns all unclaimed tokens to vault pool, nothing transferred to recipient.
+    /// Mode 0 (NonVested): transfers vested-but-unclaimed tokens to recipient, returns unvested tokens to authority.
+    /// Mode 1 (Full): returns all unclaimed tokens (unvested + vested-unclaimed) to authority, nothing transferred to recipient.
     #[codama(account(name = "authority", signer, docs = "Distribution authority; must match distribution.authority"))]
     #[codama(account(name = "distribution", writable, docs = "PDA: DirectDistribution account"))]
     #[codama(account(
@@ -285,7 +287,11 @@ pub enum RewardsProgramInstruction {
         docs = "PDA: [b\"direct_recipient\", distribution, recipient] (closed)"
     ))]
     #[codama(account(name = "recipient", docs = "Wallet address of the recipient"))]
-    #[codama(account(name = "payer", writable, docs = "Original payer of recipient PDA; receives rent refund"))]
+    #[codama(account(
+        name = "original_payer",
+        writable,
+        docs = "Original payer of recipient PDA; receives rent refund"
+    ))]
     #[codama(account(name = "mint", docs = "SPL token mint"))]
     #[codama(account(
         name = "distribution_vault",
@@ -297,6 +303,11 @@ pub enum RewardsProgramInstruction {
         writable,
         docs = "Recipient's token account; destination for vested tokens (NonVested mode)"
     ))]
+    #[codama(account(
+        name = "authority_token_account",
+        writable,
+        docs = "Authority's token account; destination for returned tokens"
+    ))]
     #[codama(account(name = "token_program", docs = "SPL Token or Token-2022 program"))]
     #[codama(account(name = "event_authority", docs = "PDA: [b\"__event_authority\"] for event CPI"))]
     #[codama(account(name = "rewardsProgram", docs = "This program's ID"))]
@@ -307,8 +318,8 @@ pub enum RewardsProgramInstruction {
 
     /// Revoke a claimant from a merkle distribution.
     /// Authority provides the claimant's merkle leaf data for on-chain proof verification.
-    /// Mode 0 (NonVested): transfers vested-but-unclaimed tokens to claimant, unvested stays in vault.
-    /// Mode 1 (Full): no transfer to claimant, all unclaimed stays in vault.
+    /// Mode 0 (NonVested): transfers vested-but-unclaimed tokens to claimant, returns unvested tokens to authority.
+    /// Mode 1 (Full): returns all unclaimed tokens (unvested + vested-unclaimed) to authority, nothing transferred to claimant.
     #[codama(account(name = "authority", signer, docs = "Distribution authority; must match distribution.authority"))]
     #[codama(account(name = "payer", signer, writable, docs = "Pays for PDA creation rent"))]
     #[codama(account(name = "distribution", writable, docs = "PDA: MerkleDistribution account"))]
@@ -332,6 +343,11 @@ pub enum RewardsProgramInstruction {
         name = "claimant_token_account",
         writable,
         docs = "Claimant's token account; destination for vested tokens (NonVested mode)"
+    ))]
+    #[codama(account(
+        name = "authority_token_account",
+        writable,
+        docs = "Authority's token account; destination for returned tokens"
     ))]
     #[codama(account(name = "system_program", docs = "System program"))]
     #[codama(account(name = "token_program", docs = "SPL Token or Token-2022 program"))]
