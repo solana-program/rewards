@@ -34,3 +34,45 @@ impl RewardDistributedEvent {
         Self { reward_pool, amount, new_reward_per_token }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::events::EVENT_IX_TAG_LE;
+    use crate::traits::EVENT_DISCRIMINATOR_LEN;
+
+    #[test]
+    fn test_reward_distributed_event_new() {
+        let reward_pool = Address::new_from_array([1u8; 32]);
+
+        let event = RewardDistributedEvent::new(reward_pool, 100_000, 500_000_000_000);
+
+        assert_eq!(event.reward_pool, reward_pool);
+        assert_eq!(event.amount, 100_000);
+        assert_eq!(event.new_reward_per_token, 500_000_000_000);
+    }
+
+    #[test]
+    fn test_reward_distributed_event_to_bytes_inner() {
+        let reward_pool = Address::new_from_array([1u8; 32]);
+        let event = RewardDistributedEvent::new(reward_pool, 200_000, 1_000_000_000_000);
+
+        let bytes = event.to_bytes_inner();
+        assert_eq!(bytes.len(), RewardDistributedEvent::DATA_LEN);
+        assert_eq!(&bytes[..32], reward_pool.as_ref());
+        assert_eq!(&bytes[32..40], &200_000u64.to_le_bytes());
+        assert_eq!(&bytes[40..56], &1_000_000_000_000u128.to_le_bytes());
+    }
+
+    #[test]
+    fn test_reward_distributed_event_to_bytes() {
+        let reward_pool = Address::new_from_array([1u8; 32]);
+        let event = RewardDistributedEvent::new(reward_pool, 100_000, 500_000_000_000);
+
+        let bytes = event.to_bytes();
+        assert_eq!(bytes.len(), EVENT_DISCRIMINATOR_LEN + RewardDistributedEvent::DATA_LEN);
+        assert_eq!(&bytes[..8], EVENT_IX_TAG_LE);
+        assert_eq!(bytes[8], EventDiscriminators::RewardDistributed as u8);
+        assert_eq!(&bytes[9..41], reward_pool.as_ref());
+    }
+}
