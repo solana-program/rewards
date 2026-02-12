@@ -28,7 +28,8 @@ use crate::{require_account_len, validate_discriminator};
 pub struct RewardPool {
     pub bump: u8,
     pub balance_source: BalanceSource,
-    _padding: [u8; 6],
+    pub revocable: u8,
+    _padding: [u8; 5],
     pub authority: Address,
     pub tracked_mint: Address,
     pub reward_mint: Address,
@@ -49,7 +50,7 @@ impl Versioned for RewardPool {
 }
 
 impl AccountSize for RewardPool {
-    const DATA_LEN: usize = 1 + 1 + 6 + 32 + 32 + 32 + 32 + 16 + 8 + 8 + 8 + 8; // 184
+    const DATA_LEN: usize = 1 + 1 + 1 + 5 + 32 + 32 + 32 + 32 + 16 + 8 + 8 + 8 + 8; // 184
 }
 
 impl AccountParse for RewardPool {
@@ -61,6 +62,7 @@ impl AccountParse for RewardPool {
 
         let bump = data[0];
         let balance_source = BalanceSource::try_from(data[1])?;
+        let revocable = data[2];
         let authority =
             Address::new_from_array(data[8..40].try_into().map_err(|_| RewardsProgramError::InvalidAccountData)?);
         let tracked_mint =
@@ -83,7 +85,8 @@ impl AccountParse for RewardPool {
         Ok(Self {
             bump,
             balance_source,
-            _padding: [0u8; 6],
+            revocable,
+            _padding: [0u8; 5],
             authority,
             tracked_mint,
             reward_mint,
@@ -103,7 +106,8 @@ impl AccountSerialize for RewardPool {
         let mut data = Vec::with_capacity(Self::DATA_LEN);
         data.push(self.bump);
         data.push(self.balance_source.to_byte());
-        data.extend_from_slice(&[0u8; 6]);
+        data.push(self.revocable);
+        data.extend_from_slice(&[0u8; 5]);
         data.extend_from_slice(self.authority.as_ref());
         data.extend_from_slice(self.tracked_mint.as_ref());
         data.extend_from_slice(self.reward_mint.as_ref());
@@ -146,9 +150,11 @@ impl PdaAccount for RewardPool {
 
 impl RewardPool {
     #[inline(always)]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         bump: u8,
         balance_source: BalanceSource,
+        revocable: u8,
         clawback_ts: i64,
         authority: Address,
         tracked_mint: Address,
@@ -158,7 +164,8 @@ impl RewardPool {
         Self {
             bump,
             balance_source,
-            _padding: [0u8; 6],
+            revocable,
+            _padding: [0u8; 5],
             authority,
             tracked_mint,
             reward_mint,
@@ -229,6 +236,7 @@ mod tests {
             255,
             BalanceSource::OnChain,
             0,
+            0,
             Address::new_from_array([1u8; 32]),
             Address::new_from_array([2u8; 32]),
             Address::new_from_array([3u8; 32]),
@@ -241,6 +249,7 @@ mod tests {
         let pool = create_test_pool();
         assert_eq!(pool.bump, 255);
         assert_eq!(pool.balance_source, BalanceSource::OnChain);
+        assert_eq!(pool.revocable, 0);
         assert_eq!(pool.reward_per_token, 0);
         assert_eq!(pool.opted_in_supply, 0);
         assert_eq!(pool.total_distributed, 0);
@@ -275,6 +284,7 @@ mod tests {
 
         assert_eq!(deserialized.bump, pool.bump);
         assert_eq!(deserialized.balance_source, pool.balance_source);
+        assert_eq!(deserialized.revocable, pool.revocable);
         assert_eq!(deserialized.authority, pool.authority);
         assert_eq!(deserialized.tracked_mint, pool.tracked_mint);
         assert_eq!(deserialized.reward_mint, pool.reward_mint);
@@ -369,6 +379,7 @@ mod tests {
         let pool = RewardPool::new(
             200,
             BalanceSource::AuthoritySet,
+            0,
             0,
             Address::new_from_array([1u8; 32]),
             Address::new_from_array([2u8; 32]),

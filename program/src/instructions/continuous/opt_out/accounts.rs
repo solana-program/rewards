@@ -55,8 +55,15 @@ impl<'a> TryFrom<&'a [AccountView]> for OptOutAccounts<'a> {
 
         verify_owned_by(tracked_mint, tracked_token_program.address())?;
         verify_owned_by(reward_mint, reward_token_program.address())?;
+        verify_owned_by(user_tracked_token_account, tracked_token_program.address())?;
 
         validate_associated_token_account(reward_vault, reward_pool.address(), reward_mint, reward_token_program)?;
+        validate_associated_token_account(
+            user_tracked_token_account,
+            user.address(),
+            tracked_mint,
+            tracked_token_program,
+        )?;
 
         Ok(Self {
             user,

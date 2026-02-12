@@ -19,6 +19,7 @@ pub struct RevokeUserAccounts<'a> {
     pub user_tracked_token_account: &'a AccountView,
     pub reward_vault: &'a AccountView,
     pub user_reward_token_account: &'a AccountView,
+    pub authority_reward_token_account: &'a AccountView,
     pub tracked_mint: &'a AccountView,
     pub reward_mint: &'a AccountView,
     pub system_program: &'a AccountView,
@@ -33,7 +34,7 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeUserAccounts<'a> {
 
     #[inline(always)]
     fn try_from(accounts: &'a [AccountView]) -> Result<Self, Self::Error> {
-        let [authority, payer, reward_pool, user_reward_account, revocation_account, user, user_tracked_token_account, reward_vault, user_reward_token_account, tracked_mint, reward_mint, system_program, tracked_token_program, reward_token_program, event_authority, program] =
+        let [authority, payer, reward_pool, user_reward_account, revocation_account, user, user_tracked_token_account, reward_vault, user_reward_token_account, authority_reward_token_account, tracked_mint, reward_mint, system_program, tracked_token_program, reward_token_program, event_authority, program] =
             accounts
         else {
             return Err(ProgramError::NotEnoughAccountKeys);
@@ -48,6 +49,7 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeUserAccounts<'a> {
         verify_writable(user, true)?;
         verify_writable(reward_vault, true)?;
         verify_writable(user_reward_token_account, true)?;
+        verify_writable(authority_reward_token_account, true)?;
 
         verify_readonly(user_tracked_token_account)?;
         verify_readonly(tracked_mint)?;
@@ -66,8 +68,21 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeUserAccounts<'a> {
         verify_owned_by(user_tracked_token_account, tracked_token_program.address())?;
         verify_owned_by(reward_mint, reward_token_program.address())?;
         verify_owned_by(user_reward_token_account, reward_token_program.address())?;
+        verify_owned_by(authority_reward_token_account, reward_token_program.address())?;
 
         validate_associated_token_account(reward_vault, reward_pool.address(), reward_mint, reward_token_program)?;
+        validate_associated_token_account(
+            user_tracked_token_account,
+            user.address(),
+            tracked_mint,
+            tracked_token_program,
+        )?;
+        validate_associated_token_account(
+            authority_reward_token_account,
+            authority.address(),
+            reward_mint,
+            reward_token_program,
+        )?;
 
         Ok(Self {
             authority,
@@ -79,6 +94,7 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeUserAccounts<'a> {
             user_tracked_token_account,
             reward_vault,
             user_reward_token_account,
+            authority_reward_token_account,
             tracked_mint,
             reward_mint,
             system_program,

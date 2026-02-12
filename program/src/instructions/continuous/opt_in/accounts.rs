@@ -3,8 +3,9 @@ use pinocchio::{account::AccountView, error::ProgramError};
 use crate::{
     traits::InstructionAccounts,
     utils::{
-        verify_current_program, verify_current_program_account, verify_event_authority, verify_owned_by,
-        verify_readonly, verify_signer, verify_system_program, verify_token_program, verify_writable,
+        validate_associated_token_account, verify_current_program, verify_current_program_account,
+        verify_event_authority, verify_owned_by, verify_readonly, verify_signer, verify_system_program,
+        verify_token_program, verify_writable,
     },
 };
 
@@ -52,6 +53,13 @@ impl<'a> TryFrom<&'a [AccountView]> for OptInAccounts<'a> {
 
         verify_owned_by(tracked_mint, tracked_token_program.address())?;
         verify_owned_by(user_tracked_token_account, tracked_token_program.address())?;
+
+        validate_associated_token_account(
+            user_tracked_token_account,
+            user.address(),
+            tracked_mint,
+            tracked_token_program,
+        )?;
 
         Ok(Self {
             payer,

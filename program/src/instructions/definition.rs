@@ -390,6 +390,8 @@ pub enum RewardsProgramInstruction {
         bump: u8,
         /// Balance source mode: 0 = on-chain token account, 1 = authority-set
         balance_source: u8,
+        /// Bitmask of allowed revoke modes (0 = not revocable, bit 0 = NonVested, bit 1 = Full)
+        revocable: u8,
         /// Timestamp after which authority can close the pool (0 = no gate)
         clawback_ts: i64,
     } = 11,
@@ -551,7 +553,7 @@ pub enum RewardsProgramInstruction {
     /// Revoke a user from a continuous reward pool.
     /// Authority force-removes a user and creates a revocation marker PDA to prevent re-opt-in.
     /// Mode 0 (NonVested): transfers accrued rewards to user.
-    /// Mode 1 (Full): forfeits all accrued rewards (tokens stay in vault).
+    /// Mode 1 (Full): forfeits all accrued rewards; transfers them to authority.
     #[codama(account(name = "authority", signer, docs = "Pool authority; must match reward_pool.authority"))]
     #[codama(account(name = "payer", signer, writable, docs = "Pays for revocation PDA creation"))]
     #[codama(account(name = "reward_pool", writable, docs = "PDA: RewardPool account"))]
@@ -579,6 +581,11 @@ pub enum RewardsProgramInstruction {
         name = "user_reward_token_account",
         writable,
         docs = "User's reward token account; destination for rewards (NonVested mode)"
+    ))]
+    #[codama(account(
+        name = "authority_reward_token_account",
+        writable,
+        docs = "Authority's reward token account; destination for forfeited rewards (Full mode)"
     ))]
     #[codama(account(name = "tracked_mint", docs = "SPL token mint; must match pool tracked_mint"))]
     #[codama(account(name = "reward_mint", docs = "SPL token mint; must match reward_pool.reward_mint"))]

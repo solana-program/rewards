@@ -25,6 +25,7 @@ pub struct CreateRewardPoolSetup {
     pub reward_pool_pda: Pubkey,
     pub bump: u8,
     pub balance_source: u8,
+    pub revocable: u8,
     pub clawback_ts: i64,
     pub reward_token_program: Pubkey,
 }
@@ -60,6 +61,7 @@ impl CreateRewardPoolSetup {
             reward_pool_pda,
             bump,
             balance_source,
+            revocable: 0,
             clawback_ts: 0,
             reward_token_program,
         }
@@ -81,6 +83,7 @@ impl CreateRewardPoolSetup {
             .event_authority(event_authority)
             .bump(self.bump)
             .balance_source(self.balance_source)
+            .revocable(self.revocable)
             .clawback_ts(self.clawback_ts);
 
         TestInstruction {
@@ -118,7 +121,7 @@ impl InstructionTestFixture for CreateRewardPoolFixture {
     }
 
     fn data_len() -> usize {
-        1 + 1 + 1 + 8 // discriminator + bump + balance_source + clawback_ts
+        1 + 1 + 1 + 1 + 8 // discriminator + bump + balance_source + revocable + clawback_ts
     }
 }
 

@@ -63,6 +63,7 @@ mod tests {
             255,
             BalanceSource::OnChain,
             0,
+            0,
             Address::new_from_array([1u8; 32]),
             Address::new_from_array([2u8; 32]),
             Address::new_from_array([3u8; 32]),

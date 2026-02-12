@@ -349,11 +349,20 @@
             },
             {
               "kind": "structFieldTypeNode",
+              "name": "revocable",
+              "type": {
+                "endian": "le",
+                "format": "u8",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
               "name": "padding",
               "type": {
                 "count": {
                   "kind": "fixedCountNode",
-                  "value": 6
+                  "value": 5
                 },
                 "item": {
                   "endian": "le",
@@ -2941,6 +2950,15 @@
           },
           {
             "kind": "instructionArgumentNode",
+            "name": "revocable",
+            "type": {
+              "endian": "le",
+              "format": "u8",
+              "kind": "numberTypeNode"
+            }
+          },
+          {
+            "kind": "instructionArgumentNode",
             "name": "clawbackTs",
             "type": {
               "endian": "le",
@@ -3829,6 +3847,15 @@
             "isWritable": true,
             "kind": "instructionAccountNode",
             "name": "userRewardTokenAccount"
+          },
+          {
+            "docs": [
+              "Authority's reward token account; destination for forfeited rewards (Full mode)"
+            ],
+            "isSigner": false,
+            "isWritable": true,
+            "kind": "instructionAccountNode",
+            "name": "authorityRewardTokenAccount"
           },
           {
             "docs": [

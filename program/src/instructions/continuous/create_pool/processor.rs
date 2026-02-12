@@ -22,6 +22,7 @@ pub fn process_create_reward_pool(
     let pool = RewardPool::new(
         ix.data.bump,
         ix.data.balance_source,
+        ix.data.revocable,
         ix.data.clawback_ts,
         *ix.accounts.authority.address(),
         *ix.accounts.tracked_mint.address(),

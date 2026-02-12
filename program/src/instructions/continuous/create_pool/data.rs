@@ -5,6 +5,7 @@ use crate::{require_len, traits::InstructionData, utils::BalanceSource};
 pub struct CreateRewardPoolData {
     pub bump: u8,
     pub balance_source: BalanceSource,
+    pub revocable: u8,
     pub clawback_ts: i64,
 }
 
@@ -17,12 +18,13 @@ impl<'a> TryFrom<&'a [u8]> for CreateRewardPoolData {
 
         let bump = data[0];
         let balance_source = BalanceSource::try_from(data[1])?;
-        let clawback_ts = i64::from_le_bytes(data[2..10].try_into().map_err(|_| ProgramError::InvalidInstructionData)?);
+        let revocable = data[2];
+        let clawback_ts = i64::from_le_bytes(data[3..11].try_into().map_err(|_| ProgramError::InvalidInstructionData)?);
 
-        Ok(Self { bump, balance_source, clawback_ts })
+        Ok(Self { bump, balance_source, revocable, clawback_ts })
     }
 }
 
 impl<'a> InstructionData<'a> for CreateRewardPoolData {
-    const LEN: usize = 10; // bump(1) + balance_source(1) + clawback_ts(8)
+    const LEN: usize = 11; // bump(1) + balance_source(1) + revocable(1) + clawback_ts(8)
 }

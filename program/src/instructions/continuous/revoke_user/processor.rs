@@ -26,6 +26,10 @@ pub fn process_revoke_user(_program_id: &Address, accounts: &[AccountView], inst
     pool.validate_tracked_mint(ix.accounts.tracked_mint.address())?;
     pool.validate_reward_mint(ix.accounts.reward_mint.address())?;
 
+    if ix.data.revoke_mode.is_disabled_by(pool.revocable) {
+        return Err(RewardsProgramError::DistributionNotRevocable.into());
+    }
+
     let user_data = ix.accounts.user_reward_account.try_borrow()?;
     let mut user = UserRewardAccount::from_account(
         &user_data,
@@ -82,6 +86,26 @@ pub fn process_revoke_user(_program_id: &Address, accounts: &[AccountView], inst
         RevokeMode::Full => {
             rewards_transferred = 0;
             rewards_forfeited = user.accrued_rewards;
+
+            if rewards_forfeited > 0 {
+                let decimals = get_mint_decimals(ix.accounts.reward_mint)?;
+
+                pool.total_claimed =
+                    pool.total_claimed.checked_add(rewards_forfeited).ok_or(RewardsProgramError::MathOverflow)?;
+
+                pool.with_signer(|signers| {
+                    TransferChecked {
+                        from: ix.accounts.reward_vault,
+                        mint: ix.accounts.reward_mint,
+                        to: ix.accounts.authority_reward_token_account,
+                        authority: ix.accounts.reward_pool,
+                        amount: rewards_forfeited,
+                        decimals,
+                        token_program: ix.accounts.reward_token_program.address(),
+                    }
+                    .invoke_signed(signers)
+                })?;
+            }
         }
     }
 
