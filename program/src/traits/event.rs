@@ -14,6 +14,9 @@ pub enum EventDiscriminators {
     RecipientAdded = 3,
     ClaimClosed = 4,
     RecipientRevoked = 5,
+    RewardDistributed = 6,
+    OptedIn = 7,
+    OptedOut = 8,
 }
 
 /// Event discriminator with Anchor-compatible prefix

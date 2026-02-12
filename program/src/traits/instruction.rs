@@ -20,6 +20,17 @@ pub enum RewardsInstructionDiscriminators {
     RevokeDirectRecipient = 9,
     RevokeMerkleClaim = 10,
 
+    // Continuous Distribution
+    CreateRewardPool = 11,
+    OptIn = 12,
+    OptOut = 13,
+    DistributeReward = 14,
+    ClaimContinuous = 15,
+    SyncBalance = 16,
+    SetBalance = 17,
+    CloseRewardPool = 18,
+    RevokeUser = 19,
+
     // Shared
     EmitEvent = 228,
 }
@@ -43,6 +54,16 @@ impl TryFrom<u8> for RewardsInstructionDiscriminators {
             // Revoke
             9 => Ok(Self::RevokeDirectRecipient),
             10 => Ok(Self::RevokeMerkleClaim),
+            // Continuous Distribution
+            11 => Ok(Self::CreateRewardPool),
+            12 => Ok(Self::OptIn),
+            13 => Ok(Self::OptOut),
+            14 => Ok(Self::DistributeReward),
+            15 => Ok(Self::ClaimContinuous),
+            16 => Ok(Self::SyncBalance),
+            17 => Ok(Self::SetBalance),
+            18 => Ok(Self::CloseRewardPool),
+            19 => Ok(Self::RevokeUser),
             // Shared
             228 => Ok(Self::EmitEvent),
             _ => Err(ProgramError::InvalidInstructionData),
@@ -170,8 +191,47 @@ mod tests {
     }
 
     #[test]
-    fn test_discriminator_try_from_invalid() {
+    fn test_discriminator_try_from_continuous_instructions() {
         let result = RewardsInstructionDiscriminators::try_from(11u8);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::CreateRewardPool));
+
+        let result = RewardsInstructionDiscriminators::try_from(12u8);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::OptIn));
+
+        let result = RewardsInstructionDiscriminators::try_from(13u8);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::OptOut));
+
+        let result = RewardsInstructionDiscriminators::try_from(14u8);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::DistributeReward));
+
+        let result = RewardsInstructionDiscriminators::try_from(15u8);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::ClaimContinuous));
+
+        let result = RewardsInstructionDiscriminators::try_from(16u8);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::SyncBalance));
+
+        let result = RewardsInstructionDiscriminators::try_from(17u8);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::SetBalance));
+
+        let result = RewardsInstructionDiscriminators::try_from(18u8);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::CloseRewardPool));
+
+        let result = RewardsInstructionDiscriminators::try_from(19u8);
+        assert!(result.is_ok());
+        assert!(matches!(result.unwrap(), RewardsInstructionDiscriminators::RevokeUser));
+    }
+
+    #[test]
+    fn test_discriminator_try_from_invalid() {
+        let result = RewardsInstructionDiscriminators::try_from(20u8);
         assert!(matches!(result, Err(ProgramError::InvalidInstructionData)));
 
         let result = RewardsInstructionDiscriminators::try_from(255u8);

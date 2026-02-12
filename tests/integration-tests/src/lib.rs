@@ -18,6 +18,8 @@ mod test_close_merkle_claim;
 #[cfg(test)]
 mod test_close_merkle_distribution;
 #[cfg(test)]
+mod test_continuous_lifecycle;
+#[cfg(test)]
 mod test_create_direct_distribution;
 #[cfg(test)]
 mod test_create_merkle_distribution;

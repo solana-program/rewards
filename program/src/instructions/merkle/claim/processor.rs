@@ -4,7 +4,7 @@ use pinocchio_token_2022::instructions::TransferChecked;
 use crate::{
     errors::RewardsProgramError,
     events::ClaimedEvent,
-    state::{MerkleClaim, MerkleClaimSeeds, MerkleDistribution, MerkleRevocationSeeds},
+    state::{MerkleClaim, MerkleClaimSeeds, MerkleDistribution, RevocationSeeds},
     traits::{
         AccountParse, AccountSerialize, AccountSize, ClaimTracker, Distribution, DistributionSigner, EventSerialize,
         PdaSeeds, VestingParams,
@@ -32,10 +32,8 @@ pub fn process_claim_merkle(_program_id: &Address, accounts: &[AccountView], ins
     verify_proof_or_error(&ix.data.proof, &distribution.merkle_root, &leaf)?;
 
     // Check if claimant has been revoked
-    let revocation_seeds = MerkleRevocationSeeds {
-        distribution: *ix.accounts.distribution.address(),
-        claimant: *ix.accounts.claimant.address(),
-    };
+    let revocation_seeds =
+        RevocationSeeds { parent: *ix.accounts.distribution.address(), user: *ix.accounts.claimant.address() };
     revocation_seeds.validate_pda_address(ix.accounts.revocation_account, &ID)?;
 
     if !is_pda_uninitialized(ix.accounts.revocation_account) {

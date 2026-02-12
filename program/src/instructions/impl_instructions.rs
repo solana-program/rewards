@@ -1,5 +1,16 @@
 use crate::define_instruction;
 
+use super::continuous::{
+    claim::{ClaimContinuousAccounts, ClaimContinuousData},
+    close_pool::{CloseRewardPoolAccounts, CloseRewardPoolData},
+    create_pool::{CreateRewardPoolAccounts, CreateRewardPoolData},
+    distribute_reward::{DistributeRewardAccounts, DistributeRewardData},
+    opt_in::{OptInAccounts, OptInData},
+    opt_out::{OptOutAccounts, OptOutData},
+    revoke_user::{RevokeUserAccounts, RevokeUserData},
+    set_balance::{SetBalanceAccounts, SetBalanceData},
+    sync_balance::{SyncBalanceAccounts, SyncBalanceData},
+};
 use super::direct::{
     add_recipient::{AddDirectRecipientAccounts, AddDirectRecipientData},
     claim::{ClaimDirectAccounts, ClaimDirectData},
@@ -30,3 +41,14 @@ define_instruction!(CloseMerkleClaim, CloseMerkleClaimAccounts, CloseMerkleClaim
 define_instruction!(CloseMerkleDistribution, CloseMerkleDistributionAccounts, CloseMerkleDistributionData);
 define_instruction!(CreateMerkleDistribution, CreateMerkleDistributionAccounts, CreateMerkleDistributionData);
 define_instruction!(RevokeMerkleClaim, RevokeMerkleClaimAccounts, RevokeMerkleClaimData);
+
+// Continuous Distribution
+define_instruction!(CreateRewardPool, CreateRewardPoolAccounts, CreateRewardPoolData);
+define_instruction!(OptIn, OptInAccounts, OptInData);
+define_instruction!(OptOut, OptOutAccounts, OptOutData);
+define_instruction!(DistributeReward, DistributeRewardAccounts, DistributeRewardData);
+define_instruction!(ClaimContinuous, ClaimContinuousAccounts, ClaimContinuousData);
+define_instruction!(SyncBalance, SyncBalanceAccounts, SyncBalanceData);
+define_instruction!(SetBalance, SetBalanceAccounts, SetBalanceData);
+define_instruction!(CloseRewardPool, CloseRewardPoolAccounts, CloseRewardPoolData);
+define_instruction!(RevokeUser, RevokeUserAccounts, RevokeUserData);

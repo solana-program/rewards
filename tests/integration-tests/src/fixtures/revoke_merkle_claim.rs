@@ -9,7 +9,7 @@ use spl_token_interface::ID as TOKEN_PROGRAM_ID;
 
 use crate::fixtures::CreateMerkleDistributionSetup;
 use crate::utils::{
-    find_event_authority_pda, find_merkle_claim_pda, find_merkle_revocation_pda, InstructionTestFixture, MerkleLeaf,
+    find_event_authority_pda, find_merkle_claim_pda, find_revocation_pda, InstructionTestFixture, MerkleLeaf,
     MerkleTree, TestContext, TestInstruction,
 };
 
@@ -221,7 +221,7 @@ impl<'a> RevokeMerkleClaimSetupBuilder<'a> {
         create_ix.send_expect_success(self.ctx);
 
         let (claim_pda, claim_bump) = find_merkle_claim_pda(&distribution_setup.distribution_pda, &claimant.pubkey());
-        let (revocation_pda, _) = find_merkle_revocation_pda(&distribution_setup.distribution_pda, &claimant.pubkey());
+        let (revocation_pda, _) = find_revocation_pda(&distribution_setup.distribution_pda, &claimant.pubkey());
 
         let proof = merkle_tree.get_proof_for_claimant(&claimant.pubkey()).unwrap();
 
