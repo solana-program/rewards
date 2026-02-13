@@ -1,3 +1,8 @@
+//! Continuous reward pool instructions.
+//!
+//! Continuous rewards track opted-in balances and distribute rewards
+//! proportionally over time via a pool-level accumulator.
+
 pub mod claim;
 pub mod close_pool;
 pub mod create_pool;

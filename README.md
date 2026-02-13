@@ -59,6 +59,19 @@ A token rewards program for Solana that supports three distribution models: dire
 
 Revocation is opt-in per distribution via the `revocable` bitmask field. A `Revocation` marker PDA is created per user to permanently block future claims or opt-ins.
 
+### Terminology Mapping
+
+Different reward classes use different names for similar concepts:
+
+| Shared Concept | Direct | Merkle | Continuous |
+| --- | --- | --- | --- |
+| Parent config | `DirectDistribution` | `MerkleDistribution` | `RewardPool` |
+| Rewards vault ATA | `distribution_vault` | `distribution_vault` | `reward_vault` |
+| User tracking account | `DirectRecipient` | `MerkleClaim` | `UserRewardAccount` |
+| User identity field | `recipient` | `claimant` | `user` |
+
+See [`docs/GLOSSARY.md`](docs/GLOSSARY.md) for a complete mapping.
+
 ## Account Types
 
 | Account            | PDA Seeds                                        | Description                                   |
@@ -110,107 +123,22 @@ Revocation is opt-in per distribution via the `revocable` bitmask field. A `Revo
 
 ## Workflow
 
-### Direct Distribution
+Detailed lifecycle diagrams now live with their respective class guides:
 
-```mermaid
-sequenceDiagram
-    participant Authority
-    participant Program
-    participant Accounts
-
-    Authority->>Program: CreateDirectDistribution
-    Program->>Accounts: create Distribution PDA
-    Program->>Accounts: create Vault ATA
-    Program->>Accounts: transfer initial funding
-
-    Authority->>Program: AddDirectRecipient
-    Program->>Accounts: create Recipient PDA
-    Program->>Accounts: update total_allocated
-```
-
-```mermaid
-sequenceDiagram
-    participant Recipient
-    participant Program
-    participant Accounts
-
-    Note over Recipient,Accounts: time passes, tokens vest
-
-    Recipient->>Program: ClaimDirect
-    Program->>Accounts: calculate unlocked amount
-    Program->>Recipient: transfer vested tokens
-    Program->>Accounts: update claimed_amount
-```
-
-### Merkle Distribution
-
-```mermaid
-sequenceDiagram
-    participant Authority
-    participant Program
-    participant Accounts
-
-    Note over Authority: build merkle tree off-chain
-    Authority->>Program: CreateMerkleDistribution (with root)
-    Program->>Accounts: create Distribution PDA
-    Program->>Accounts: create Vault ATA
-    Program->>Accounts: transfer initial funding
-```
-
-```mermaid
-sequenceDiagram
-    participant Claimant
-    participant Program
-    participant Accounts
-
-    Note over Claimant,Accounts: time passes, tokens vest
-
-    Claimant->>Program: ClaimMerkle (with proof)
-    Program->>Accounts: verify proof against root
-    Program->>Accounts: create/update MerkleClaim PDA
-    Program->>Claimant: transfer vested tokens
-```
-
-### Continuous Reward Pool
-
-```mermaid
-sequenceDiagram
-    participant Authority
-    participant Program
-    participant User
-
-    Authority->>Program: CreateRewardPool
-    Program->>Program: create RewardPool PDA + Vault ATA
-
-    User->>Program: OptIn
-    Program->>Program: create UserRewardAccount PDA
-    Program->>Program: snapshot initial balance
-
-    Authority->>Program: DistributeReward
-    Program->>Program: update reward_per_token accumulator
-
-    User->>Program: ClaimContinuous
-    Program->>Program: settle accrued rewards
-    Program->>User: transfer reward tokens
-```
-
-### Closing
-
-```mermaid
-sequenceDiagram
-    participant Authority
-    participant Program
-    participant Accounts
-
-    Authority->>Program: CloseDirectDistribution / CloseMerkleDistribution / CloseRewardPool
-    Program->>Accounts: return remaining tokens
-    Program->>Accounts: close PDA
-    Program->>Authority: reclaim rent
-```
+- Direct flow: [`docs/DIRECT.md`](docs/DIRECT.md)
+- Merkle flow: [`docs/MERKLE.md`](docs/MERKLE.md)
+- Continuous flow: [`docs/CONTINUOUS.md`](docs/CONTINUOUS.md)
 
 ## Documentation
 
 - [CU Benchmarks](docs/CU_BENCHMARKS.md) - Compute unit usage per instruction
+- [Direct Guide](docs/DIRECT.md) - Direct distribution lifecycle and modules
+- [Merkle Guide](docs/MERKLE.md) - Merkle lifecycle and proof flow
+- [Continuous Guide](docs/CONTINUOUS.md) - Continuous pool lifecycle and balance modes
+- [Vesting Concepts](docs/VESTING.md) - Vesting schedules and where they apply
+- [Revocation Concepts](docs/REVOCATION.md) - Revocation behavior and shared state
+- [Glossary](docs/GLOSSARY.md) - Cross-class term mapping
+- [New Reward Class Checklist](program/NEW_REWARD_CLASS_CHECKLIST.md) - Contributor workflow
 
 ## Local Development
 
