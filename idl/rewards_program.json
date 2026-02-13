@@ -2455,7 +2455,7 @@
     "kind": "programNode",
     "name": "rewardsProgram",
     "pdas": [],
-    "publicKey": "3bwhqHWmDDh3gYZ8gFpSFBwwtyiSTfhRnWZo34nSjohX",
+    "publicKey": "REWArDioXgQJ2fZKkfu9LCLjQfRwYWVVfsvcsR5hoXi",
     "version": "0.1.0"
   },
   "standard": "codama",

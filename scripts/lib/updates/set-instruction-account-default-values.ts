@@ -10,7 +10,7 @@ import {
     setInstructionAccountDefaultValuesVisitor,
 } from 'codama';
 
-const REWARDS_PROGRAM_ID = '3bwhqHWmDDh3gYZ8gFpSFBwwtyiSTfhRnWZo34nSjohX';
+const REWARDS_PROGRAM_ID = 'REWArDioXgQJ2fZKkfu9LCLjQfRwYWVVfsvcsR5hoXi';
 
 const ATA_PROGRAM_ID = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL';
 const SYSTEM_PROGRAM_ID = '11111111111111111111111111111111';
