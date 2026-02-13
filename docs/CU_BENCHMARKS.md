@@ -14,12 +14,12 @@ This runs all integration tests with `CU_TRACKING=1` enabled and updates the tab
 
 <!-- CU_SUMMARY_START -->
 
-| Instruction               | Best  | Avg   | Worst | Count |
-| ------------------------- | ----- | ----- | ----- | ----- |
-| AddVestingRecipient       | 7453  | 9636  | 13533 | 20    |
-| ClaimVesting              | 7589  | 12568 | 15242 | 7     |
-| CloseVestingDistribution  | 10555 | 13598 | 18142 | 4     |
-| CreateVestingDistribution | 18076 | 23628 | 31485 | 45    |
+| Instruction              | Best  | Avg   | Worst | Count |
+| ------------------------ | ----- | ----- | ----- | ----- |
+| AddDirectRecipient       | 7453  | 9636  | 13533 | 20    |
+| ClaimDirect              | 7589  | 12568 | 15242 | 7     |
+| CloseDirectDistribution  | 10555 | 13598 | 18142 | 4     |
+| CreateDirectDistribution | 18076 | 23628 | 31485 | 45    |
 
 <!-- CU_SUMMARY_END -->
 

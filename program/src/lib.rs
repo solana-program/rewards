@@ -6,8 +6,9 @@
 //! ## Features
 //! - Direct distributions with explicit recipient lists
 //! - Merkle distributions with proof-based claims
-//! - Configurable vesting schedules for both distribution types
-//! - Claimable rewards calculations
+//! - Continuous reward pools with proportional distribution
+//! - Configurable vesting schedules for direct and merkle distributions
+//! - Claimable rewards and revocation flows across all distribution types
 //! - Token-2022 extension blocking
 //!
 //! ## Architecture

@@ -32,6 +32,7 @@ pub fn process_instruction(program_id: &Address, accounts: &[AccountView], instr
     let ix_discriminator = RewardsInstructionDiscriminators::try_from(*discriminator)?;
 
     match ix_discriminator {
+        // Direct Distribution
         RewardsInstructionDiscriminators::CreateDirectDistribution => {
             process_create_direct_distribution(program_id, accounts, instruction_data)
         }
@@ -48,6 +49,8 @@ pub fn process_instruction(program_id: &Address, accounts: &[AccountView], instr
         RewardsInstructionDiscriminators::RevokeDirectRecipient => {
             process_revoke_direct_recipient(program_id, accounts, instruction_data)
         }
+
+        // Merkle Distribution
         RewardsInstructionDiscriminators::CreateMerkleDistribution => {
             process_create_merkle_distribution(program_id, accounts, instruction_data)
         }
@@ -61,6 +64,8 @@ pub fn process_instruction(program_id: &Address, accounts: &[AccountView], instr
         RewardsInstructionDiscriminators::RevokeMerkleClaim => {
             process_revoke_merkle_claim(program_id, accounts, instruction_data)
         }
+
+        // Continuous Distribution
         RewardsInstructionDiscriminators::CreateRewardPool => {
             process_create_reward_pool(program_id, accounts, instruction_data)
         }
@@ -78,6 +83,8 @@ pub fn process_instruction(program_id: &Address, accounts: &[AccountView], instr
             process_close_reward_pool(program_id, accounts, instruction_data)
         }
         RewardsInstructionDiscriminators::RevokeUser => process_revoke_user(program_id, accounts, instruction_data),
+
+        // Shared
         RewardsInstructionDiscriminators::EmitEvent => process_emit_event(program_id, accounts),
     }
 }

@@ -1,3 +1,8 @@
+//! Direct distribution instructions.
+//!
+//! Direct distributions store recipient allocations on-chain and support
+//! authority-managed recipient updates after distribution creation.
+
 pub mod add_recipient;
 pub mod claim;
 pub mod close_distribution;
