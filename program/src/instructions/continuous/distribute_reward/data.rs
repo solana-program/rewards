@@ -2,11 +2,11 @@ use pinocchio::error::ProgramError;
 
 use crate::{errors::RewardsProgramError, require_len, traits::InstructionData};
 
-pub struct DistributeRewardData {
+pub struct DistributeContinuousRewardData {
     pub amount: u64,
 }
 
-impl<'a> TryFrom<&'a [u8]> for DistributeRewardData {
+impl<'a> TryFrom<&'a [u8]> for DistributeContinuousRewardData {
     type Error = ProgramError;
 
     #[inline(always)]
@@ -19,7 +19,7 @@ impl<'a> TryFrom<&'a [u8]> for DistributeRewardData {
     }
 }
 
-impl<'a> InstructionData<'a> for DistributeRewardData {
+impl<'a> InstructionData<'a> for DistributeContinuousRewardData {
     const LEN: usize = 8;
 
     fn validate(&self) -> Result<(), ProgramError> {

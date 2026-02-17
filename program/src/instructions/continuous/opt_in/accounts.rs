@@ -9,12 +9,12 @@ use crate::{
     },
 };
 
-pub struct OptInAccounts<'a> {
+pub struct ContinuousOptInAccounts<'a> {
     pub payer: &'a AccountView,
     pub user: &'a AccountView,
     pub reward_pool: &'a AccountView,
     pub user_reward_account: &'a AccountView,
-    pub revocation_account: &'a AccountView,
+    pub revocation_marker: &'a AccountView,
     pub user_tracked_token_account: &'a AccountView,
     pub tracked_mint: &'a AccountView,
     pub system_program: &'a AccountView,
@@ -23,12 +23,12 @@ pub struct OptInAccounts<'a> {
     pub program: &'a AccountView,
 }
 
-impl<'a> TryFrom<&'a [AccountView]> for OptInAccounts<'a> {
+impl<'a> TryFrom<&'a [AccountView]> for ContinuousOptInAccounts<'a> {
     type Error = ProgramError;
 
     #[inline(always)]
     fn try_from(accounts: &'a [AccountView]) -> Result<Self, Self::Error> {
-        let [payer, user, reward_pool, user_reward_account, revocation_account, user_tracked_token_account, tracked_mint, system_program, tracked_token_program, event_authority, program] =
+        let [payer, user, reward_pool, user_reward_account, revocation_marker, user_tracked_token_account, tracked_mint, system_program, tracked_token_program, event_authority, program] =
             accounts
         else {
             return Err(ProgramError::NotEnoughAccountKeys);
@@ -40,7 +40,7 @@ impl<'a> TryFrom<&'a [AccountView]> for OptInAccounts<'a> {
         verify_writable(reward_pool, true)?;
         verify_writable(user_reward_account, true)?;
 
-        verify_readonly(revocation_account)?;
+        verify_readonly(revocation_marker)?;
         verify_readonly(user_tracked_token_account)?;
         verify_readonly(tracked_mint)?;
 
@@ -66,7 +66,7 @@ impl<'a> TryFrom<&'a [AccountView]> for OptInAccounts<'a> {
             user,
             reward_pool,
             user_reward_account,
-            revocation_account,
+            revocation_marker,
             user_tracked_token_account,
             tracked_mint,
             system_program,
@@ -77,4 +77,4 @@ impl<'a> TryFrom<&'a [AccountView]> for OptInAccounts<'a> {
     }
 }
 
-impl<'a> InstructionAccounts<'a> for OptInAccounts<'a> {}
+impl<'a> InstructionAccounts<'a> for ContinuousOptInAccounts<'a> {}

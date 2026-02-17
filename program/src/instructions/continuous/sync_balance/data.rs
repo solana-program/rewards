@@ -2,9 +2,9 @@ use pinocchio::error::ProgramError;
 
 use crate::traits::InstructionData;
 
-pub struct SyncBalanceData;
+pub struct SyncContinuousBalanceData;
 
-impl<'a> TryFrom<&'a [u8]> for SyncBalanceData {
+impl<'a> TryFrom<&'a [u8]> for SyncContinuousBalanceData {
     type Error = ProgramError;
 
     #[inline(always)]
@@ -13,6 +13,6 @@ impl<'a> TryFrom<&'a [u8]> for SyncBalanceData {
     }
 }
 
-impl<'a> InstructionData<'a> for SyncBalanceData {
+impl<'a> InstructionData<'a> for SyncContinuousBalanceData {
     const LEN: usize = 0;
 }

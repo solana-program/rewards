@@ -2,11 +2,11 @@ use pinocchio::error::ProgramError;
 
 use crate::{require_len, traits::InstructionData};
 
-pub struct SetBalanceData {
+pub struct SetContinuousBalanceData {
     pub balance: u64,
 }
 
-impl<'a> TryFrom<&'a [u8]> for SetBalanceData {
+impl<'a> TryFrom<&'a [u8]> for SetContinuousBalanceData {
     type Error = ProgramError;
 
     #[inline(always)]
@@ -19,6 +19,6 @@ impl<'a> TryFrom<&'a [u8]> for SetBalanceData {
     }
 }
 
-impl<'a> InstructionData<'a> for SetBalanceData {
+impl<'a> InstructionData<'a> for SetContinuousBalanceData {
     const LEN: usize = 8;
 }

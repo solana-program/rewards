@@ -1,8 +1,9 @@
 use rewards_program_client::instructions::{
-    ClaimContinuousBuilder, CloseRewardPoolBuilder, CreateRewardPoolBuilder, DistributeRewardBuilder, OptInBuilder,
-    OptOutBuilder, RevokeUserBuilder, SetBalanceBuilder, SyncBalanceBuilder,
+    ClaimContinuousBuilder, CloseContinuousPoolBuilder, ContinuousOptInBuilder, ContinuousOptOutBuilder,
+    CreateContinuousPoolBuilder, DistributeContinuousRewardBuilder, RevokeContinuousUserBuilder,
+    SetContinuousBalanceBuilder, SyncContinuousBalanceBuilder,
 };
-use rewards_program_client::types::RevokeMode;
+use rewards_program_client::types::{BalanceSource, RevokeMode};
 use solana_sdk::{
     pubkey::Pubkey,
     signature::{Keypair, Signer},
@@ -17,7 +18,7 @@ use crate::utils::{
 pub const DEFAULT_TRACKED_BALANCE: u64 = 1_000_000;
 pub const DEFAULT_REWARD_AMOUNT: u64 = 100_000;
 
-pub struct CreateRewardPoolSetup {
+pub struct CreateContinuousPoolSetup {
     pub authority: Keypair,
     pub seed: Keypair,
     pub tracked_mint: Keypair,
@@ -25,22 +26,22 @@ pub struct CreateRewardPoolSetup {
     pub reward_vault: Pubkey,
     pub reward_pool_pda: Pubkey,
     pub bump: u8,
-    pub balance_source: u8,
+    pub balance_source: BalanceSource,
     pub revocable: u8,
     pub clawback_ts: i64,
     pub reward_token_program: Pubkey,
 }
 
-impl CreateRewardPoolSetup {
+impl CreateContinuousPoolSetup {
     pub fn new(ctx: &mut TestContext) -> Self {
-        Self::new_with_balance_source(ctx, 0)
+        Self::new_with_balance_source(ctx, BalanceSource::OnChain)
     }
 
     pub fn new_authority_set(ctx: &mut TestContext) -> Self {
-        Self::new_with_balance_source(ctx, 1)
+        Self::new_with_balance_source(ctx, BalanceSource::AuthoritySet)
     }
 
-    fn new_with_balance_source(ctx: &mut TestContext, balance_source: u8) -> Self {
+    fn new_with_balance_source(ctx: &mut TestContext, balance_source: BalanceSource) -> Self {
         let authority = ctx.create_funded_keypair();
         let seed = Keypair::new();
         let tracked_mint = Keypair::new();
@@ -50,10 +51,11 @@ impl CreateRewardPoolSetup {
         ctx.create_mint_for_program(&tracked_mint, &ctx.payer.pubkey(), 6, &TOKEN_PROGRAM_ID);
         ctx.create_mint_for_program(&reward_mint, &ctx.payer.pubkey(), 6, &reward_token_program);
 
-        let (reward_pool_pda, bump) = find_reward_pool_pda(&reward_mint.pubkey(), &authority.pubkey(), &seed.pubkey());
+        let (reward_pool_pda, bump) =
+            find_reward_pool_pda(&reward_mint.pubkey(), &tracked_mint.pubkey(), &authority.pubkey(), &seed.pubkey());
         let reward_vault = ctx.create_ata_for_program(&reward_pool_pda, &reward_mint.pubkey(), &reward_token_program);
 
-        CreateRewardPoolSetup {
+        CreateContinuousPoolSetup {
             authority,
             seed,
             tracked_mint,
@@ -71,11 +73,11 @@ impl CreateRewardPoolSetup {
     pub fn build_instruction(&self, ctx: &TestContext) -> TestInstruction {
         let (event_authority, _) = find_event_authority_pda();
 
-        let mut builder = CreateRewardPoolBuilder::new();
+        let mut builder = CreateContinuousPoolBuilder::new();
         builder
             .payer(ctx.payer.pubkey())
             .authority(self.authority.pubkey())
-            .seeds(self.seed.pubkey())
+            .seed(self.seed.pubkey())
             .reward_pool(self.reward_pool_pda)
             .tracked_mint(self.tracked_mint.pubkey())
             .reward_mint(self.reward_mint.pubkey())
@@ -90,18 +92,18 @@ impl CreateRewardPoolSetup {
         TestInstruction {
             instruction: builder.instruction(),
             signers: vec![self.authority.insecure_clone(), self.seed.insecure_clone()],
-            name: "CreateRewardPool",
+            name: "CreateContinuousPool",
         }
     }
 }
 
-pub struct CreateRewardPoolFixture;
+pub struct CreateContinuousPoolFixture;
 
-impl InstructionTestFixture for CreateRewardPoolFixture {
-    const INSTRUCTION_NAME: &'static str = "CreateRewardPool";
+impl InstructionTestFixture for CreateContinuousPoolFixture {
+    const INSTRUCTION_NAME: &'static str = "CreateContinuousPool";
 
     fn build_valid(ctx: &mut TestContext) -> TestInstruction {
-        let setup = CreateRewardPoolSetup::new(ctx);
+        let setup = CreateContinuousPoolSetup::new(ctx);
         setup.build_instruction(ctx)
     }
 
@@ -126,8 +128,8 @@ impl InstructionTestFixture for CreateRewardPoolFixture {
     }
 }
 
-pub struct OptInSetup {
-    pub pool_setup: CreateRewardPoolSetup,
+pub struct ContinuousOptInSetup {
+    pub pool_setup: CreateContinuousPoolSetup,
     pub user: Keypair,
     pub user_tracked_token_account: Pubkey,
     pub user_reward_pda: Pubkey,
@@ -135,7 +137,7 @@ pub struct OptInSetup {
     pub initial_balance: u64,
 }
 
-impl OptInSetup {
+impl ContinuousOptInSetup {
     pub fn new(ctx: &mut TestContext) -> Self {
         Self::new_with_balance(ctx, DEFAULT_TRACKED_BALANCE, 0)
     }
@@ -146,9 +148,9 @@ impl OptInSetup {
 
     fn new_with_balance(ctx: &mut TestContext, balance: u64, balance_source: u8) -> Self {
         let pool_setup = if balance_source == 0 {
-            CreateRewardPoolSetup::new(ctx)
+            CreateContinuousPoolSetup::new(ctx)
         } else {
-            CreateRewardPoolSetup::new_authority_set(ctx)
+            CreateContinuousPoolSetup::new_authority_set(ctx)
         };
 
         pool_setup.build_instruction(ctx).send_expect_success(ctx);
@@ -160,7 +162,7 @@ impl OptInSetup {
         let (user_reward_pda, user_reward_bump) =
             find_user_reward_account_pda(&pool_setup.reward_pool_pda, &user.pubkey());
 
-        OptInSetup {
+        ContinuousOptInSetup {
             pool_setup,
             user,
             user_tracked_token_account,
@@ -174,7 +176,7 @@ impl OptInSetup {
         Self::new_with_balance(ctx, 0, 1)
     }
 
-    pub fn new_from_pool(ctx: &mut TestContext, pool_setup: CreateRewardPoolSetup) -> Self {
+    pub fn new_from_pool(ctx: &mut TestContext, pool_setup: CreateContinuousPoolSetup) -> Self {
         let user = ctx.create_funded_keypair();
         let user_tracked_token_account = ctx.create_token_account_with_balance(
             &user.pubkey(),
@@ -185,7 +187,7 @@ impl OptInSetup {
         let (user_reward_pda, user_reward_bump) =
             find_user_reward_account_pda(&pool_setup.reward_pool_pda, &user.pubkey());
 
-        OptInSetup {
+        ContinuousOptInSetup {
             pool_setup,
             user,
             user_tracked_token_account,
@@ -199,30 +201,34 @@ impl OptInSetup {
         let (event_authority, _) = find_event_authority_pda();
         let (revocation_pda, _) = find_revocation_pda(&self.pool_setup.reward_pool_pda, &self.user.pubkey());
 
-        let mut builder = OptInBuilder::new();
+        let mut builder = ContinuousOptInBuilder::new();
         builder
             .payer(ctx.payer.pubkey())
             .user(self.user.pubkey())
             .reward_pool(self.pool_setup.reward_pool_pda)
             .user_reward_account(self.user_reward_pda)
-            .revocation_account(revocation_pda)
+            .revocation_marker(revocation_pda)
             .user_tracked_token_account(self.user_tracked_token_account)
             .tracked_mint(self.pool_setup.tracked_mint.pubkey())
             .tracked_token_program(TOKEN_PROGRAM_ID)
             .event_authority(event_authority)
             .bump(self.user_reward_bump);
 
-        TestInstruction { instruction: builder.instruction(), signers: vec![self.user.insecure_clone()], name: "OptIn" }
+        TestInstruction {
+            instruction: builder.instruction(),
+            signers: vec![self.user.insecure_clone()],
+            name: "ContinuousOptIn",
+        }
     }
 }
 
-pub struct OptInFixture;
+pub struct ContinuousOptInFixture;
 
-impl InstructionTestFixture for OptInFixture {
-    const INSTRUCTION_NAME: &'static str = "OptIn";
+impl InstructionTestFixture for ContinuousOptInFixture {
+    const INSTRUCTION_NAME: &'static str = "ContinuousOptIn";
 
     fn build_valid(ctx: &mut TestContext) -> TestInstruction {
-        let setup = OptInSetup::new(ctx);
+        let setup = ContinuousOptInSetup::new(ctx);
         setup.build_instruction(ctx)
     }
 
@@ -247,19 +253,19 @@ impl InstructionTestFixture for OptInFixture {
     }
 }
 
-pub struct DistributeRewardSetup {
-    pub opt_in_setup: OptInSetup,
+pub struct DistributeContinuousRewardSetup {
+    pub opt_in_setup: ContinuousOptInSetup,
     pub authority_token_account: Pubkey,
     pub amount: u64,
 }
 
-impl DistributeRewardSetup {
+impl DistributeContinuousRewardSetup {
     pub fn new(ctx: &mut TestContext) -> Self {
         Self::new_with_amount(ctx, DEFAULT_REWARD_AMOUNT)
     }
 
     pub fn new_with_amount(ctx: &mut TestContext, amount: u64) -> Self {
-        let opt_in_setup = OptInSetup::new(ctx);
+        let opt_in_setup = ContinuousOptInSetup::new(ctx);
         opt_in_setup.build_instruction(ctx).send_expect_success(ctx);
 
         let authority_token_account = ctx.create_token_account_with_balance(
@@ -268,14 +274,14 @@ impl DistributeRewardSetup {
             amount * 10,
         );
 
-        DistributeRewardSetup { opt_in_setup, authority_token_account, amount }
+        DistributeContinuousRewardSetup { opt_in_setup, authority_token_account, amount }
     }
 
     pub fn build_instruction(&self, _ctx: &TestContext) -> TestInstruction {
         let (event_authority, _) = find_event_authority_pda();
         let pool = &self.opt_in_setup.pool_setup;
 
-        let mut builder = DistributeRewardBuilder::new();
+        let mut builder = DistributeContinuousRewardBuilder::new();
         builder
             .authority(pool.authority.pubkey())
             .reward_pool(pool.reward_pool_pda)
@@ -289,18 +295,18 @@ impl DistributeRewardSetup {
         TestInstruction {
             instruction: builder.instruction(),
             signers: vec![pool.authority.insecure_clone()],
-            name: "DistributeReward",
+            name: "DistributeContinuousReward",
         }
     }
 }
 
-pub struct DistributeRewardFixture;
+pub struct DistributeContinuousRewardFixture;
 
-impl InstructionTestFixture for DistributeRewardFixture {
-    const INSTRUCTION_NAME: &'static str = "DistributeReward";
+impl InstructionTestFixture for DistributeContinuousRewardFixture {
+    const INSTRUCTION_NAME: &'static str = "DistributeContinuousReward";
 
     fn build_valid(ctx: &mut TestContext) -> TestInstruction {
-        let setup = DistributeRewardSetup::new(ctx);
+        let setup = DistributeContinuousRewardSetup::new(ctx);
         setup.build_instruction(ctx)
     }
 
@@ -323,7 +329,7 @@ impl InstructionTestFixture for DistributeRewardFixture {
 
 pub fn build_claim_continuous_instruction(
     _ctx: &TestContext,
-    pool_setup: &CreateRewardPoolSetup,
+    pool_setup: &CreateContinuousPoolSetup,
     user: &Keypair,
     user_reward_pda: &Pubkey,
     user_tracked_token_account: &Pubkey,
@@ -356,7 +362,7 @@ pub fn build_claim_continuous_instruction(
 
 pub fn build_opt_out_instruction(
     _ctx: &TestContext,
-    pool_setup: &CreateRewardPoolSetup,
+    pool_setup: &CreateContinuousPoolSetup,
     user: &Keypair,
     user_reward_pda: &Pubkey,
     user_tracked_token_account: &Pubkey,
@@ -364,7 +370,7 @@ pub fn build_opt_out_instruction(
 ) -> TestInstruction {
     let (event_authority, _) = find_event_authority_pda();
 
-    let mut builder = OptOutBuilder::new();
+    let mut builder = ContinuousOptOutBuilder::new();
     builder
         .user(user.pubkey())
         .reward_pool(pool_setup.reward_pool_pda)
@@ -378,34 +384,41 @@ pub fn build_opt_out_instruction(
         .reward_token_program(pool_setup.reward_token_program)
         .event_authority(event_authority);
 
-    TestInstruction { instruction: builder.instruction(), signers: vec![user.insecure_clone()], name: "OptOut" }
+    TestInstruction {
+        instruction: builder.instruction(),
+        signers: vec![user.insecure_clone()],
+        name: "ContinuousOptOut",
+    }
 }
 
 pub fn build_sync_balance_instruction(
-    pool_setup: &CreateRewardPoolSetup,
+    pool_setup: &CreateContinuousPoolSetup,
     user: &Pubkey,
     user_reward_pda: &Pubkey,
     user_tracked_token_account: &Pubkey,
 ) -> TestInstruction {
-    let mut builder = SyncBalanceBuilder::new();
+    let (event_authority, _) = find_event_authority_pda();
+
+    let mut builder = SyncContinuousBalanceBuilder::new();
     builder
         .reward_pool(pool_setup.reward_pool_pda)
         .user_reward_account(*user_reward_pda)
         .user(*user)
         .user_tracked_token_account(*user_tracked_token_account)
         .tracked_mint(pool_setup.tracked_mint.pubkey())
-        .tracked_token_program(TOKEN_PROGRAM_ID);
+        .tracked_token_program(TOKEN_PROGRAM_ID)
+        .event_authority(event_authority);
 
-    TestInstruction { instruction: builder.instruction(), signers: vec![], name: "SyncBalance" }
+    TestInstruction { instruction: builder.instruction(), signers: vec![], name: "SyncContinuousBalance" }
 }
 
 pub fn build_set_balance_instruction(
-    pool_setup: &CreateRewardPoolSetup,
+    pool_setup: &CreateContinuousPoolSetup,
     user: &Pubkey,
     user_reward_pda: &Pubkey,
     balance: u64,
 ) -> TestInstruction {
-    let mut builder = SetBalanceBuilder::new();
+    let mut builder = SetContinuousBalanceBuilder::new();
     builder
         .authority(pool_setup.authority.pubkey())
         .reward_pool(pool_setup.reward_pool_pda)
@@ -416,18 +429,18 @@ pub fn build_set_balance_instruction(
     TestInstruction {
         instruction: builder.instruction(),
         signers: vec![pool_setup.authority.insecure_clone()],
-        name: "SetBalance",
+        name: "SetContinuousBalance",
     }
 }
 
 pub fn build_close_reward_pool_instruction(
     _ctx: &TestContext,
-    pool_setup: &CreateRewardPoolSetup,
+    pool_setup: &CreateContinuousPoolSetup,
     authority_token_account: &Pubkey,
 ) -> TestInstruction {
     let (event_authority, _) = find_event_authority_pda();
 
-    let mut builder = CloseRewardPoolBuilder::new();
+    let mut builder = CloseContinuousPoolBuilder::new();
     builder
         .authority(pool_setup.authority.pubkey())
         .reward_pool(pool_setup.reward_pool_pda)
@@ -440,18 +453,18 @@ pub fn build_close_reward_pool_instruction(
     TestInstruction {
         instruction: builder.instruction(),
         signers: vec![pool_setup.authority.insecure_clone()],
-        name: "CloseRewardPool",
+        name: "CloseContinuousPool",
     }
 }
 
 pub struct ClaimContinuousSetup {
-    pub distribute_setup: DistributeRewardSetup,
+    pub distribute_setup: DistributeContinuousRewardSetup,
     pub user_reward_token_account: Pubkey,
 }
 
 impl ClaimContinuousSetup {
     pub fn new(ctx: &mut TestContext) -> Self {
-        let distribute_setup = DistributeRewardSetup::new(ctx);
+        let distribute_setup = DistributeContinuousRewardSetup::new(ctx);
         distribute_setup.build_instruction(ctx).send_expect_success(ctx);
 
         let pool_setup = &distribute_setup.opt_in_setup.pool_setup;
@@ -506,21 +519,21 @@ impl InstructionTestFixture for ClaimContinuousFixture {
     }
 }
 
-pub struct OptOutSetup {
-    pub distribute_setup: DistributeRewardSetup,
+pub struct ContinuousOptOutSetup {
+    pub distribute_setup: DistributeContinuousRewardSetup,
     pub user_reward_token_account: Pubkey,
 }
 
-impl OptOutSetup {
+impl ContinuousOptOutSetup {
     pub fn new(ctx: &mut TestContext) -> Self {
-        let distribute_setup = DistributeRewardSetup::new(ctx);
+        let distribute_setup = DistributeContinuousRewardSetup::new(ctx);
         distribute_setup.build_instruction(ctx).send_expect_success(ctx);
 
         let pool_setup = &distribute_setup.opt_in_setup.pool_setup;
         let user = &distribute_setup.opt_in_setup.user;
         let user_reward_token_account = ctx.create_token_account(&user.pubkey(), &pool_setup.reward_mint.pubkey());
 
-        OptOutSetup { distribute_setup, user_reward_token_account }
+        ContinuousOptOutSetup { distribute_setup, user_reward_token_account }
     }
 
     pub fn build_instruction(&self, ctx: &TestContext) -> TestInstruction {
@@ -540,13 +553,13 @@ impl OptOutSetup {
     }
 }
 
-pub struct OptOutFixture;
+pub struct ContinuousOptOutFixture;
 
-impl InstructionTestFixture for OptOutFixture {
-    const INSTRUCTION_NAME: &'static str = "OptOut";
+impl InstructionTestFixture for ContinuousOptOutFixture {
+    const INSTRUCTION_NAME: &'static str = "ContinuousOptOut";
 
     fn build_valid(ctx: &mut TestContext) -> TestInstruction {
-        let setup = OptOutSetup::new(ctx);
+        let setup = ContinuousOptOutSetup::new(ctx);
         setup.build_instruction(ctx)
     }
 
@@ -567,15 +580,15 @@ impl InstructionTestFixture for OptOutFixture {
     }
 }
 
-pub struct SyncBalanceSetup {
-    pub opt_in_setup: OptInSetup,
+pub struct SyncContinuousBalanceSetup {
+    pub opt_in_setup: ContinuousOptInSetup,
 }
 
-impl SyncBalanceSetup {
+impl SyncContinuousBalanceSetup {
     pub fn new(ctx: &mut TestContext) -> Self {
-        let opt_in_setup = OptInSetup::new(ctx);
+        let opt_in_setup = ContinuousOptInSetup::new(ctx);
         opt_in_setup.build_instruction(ctx).send_expect_success(ctx);
-        SyncBalanceSetup { opt_in_setup }
+        SyncContinuousBalanceSetup { opt_in_setup }
     }
 
     pub fn build_instruction(&self) -> TestInstruction {
@@ -588,13 +601,13 @@ impl SyncBalanceSetup {
     }
 }
 
-pub struct SyncBalanceFixture;
+pub struct SyncContinuousBalanceFixture;
 
-impl InstructionTestFixture for SyncBalanceFixture {
-    const INSTRUCTION_NAME: &'static str = "SyncBalance";
+impl InstructionTestFixture for SyncContinuousBalanceFixture {
+    const INSTRUCTION_NAME: &'static str = "SyncContinuousBalance";
 
     fn build_valid(ctx: &mut TestContext) -> TestInstruction {
-        let setup = SyncBalanceSetup::new(ctx);
+        let setup = SyncContinuousBalanceSetup::new(ctx);
         setup.build_instruction()
     }
 
@@ -615,15 +628,15 @@ impl InstructionTestFixture for SyncBalanceFixture {
     }
 }
 
-pub struct SetBalanceSetup {
-    pub opt_in_setup: OptInSetup,
+pub struct SetContinuousBalanceSetup {
+    pub opt_in_setup: ContinuousOptInSetup,
 }
 
-impl SetBalanceSetup {
+impl SetContinuousBalanceSetup {
     pub fn new(ctx: &mut TestContext) -> Self {
-        let opt_in_setup = OptInSetup::new_authority_set(ctx);
+        let opt_in_setup = ContinuousOptInSetup::new_authority_set(ctx);
         opt_in_setup.build_instruction(ctx).send_expect_success(ctx);
-        SetBalanceSetup { opt_in_setup }
+        SetContinuousBalanceSetup { opt_in_setup }
     }
 
     pub fn build_instruction(&self) -> TestInstruction {
@@ -636,13 +649,13 @@ impl SetBalanceSetup {
     }
 }
 
-pub struct SetBalanceFixture;
+pub struct SetContinuousBalanceFixture;
 
-impl InstructionTestFixture for SetBalanceFixture {
-    const INSTRUCTION_NAME: &'static str = "SetBalance";
+impl InstructionTestFixture for SetContinuousBalanceFixture {
+    const INSTRUCTION_NAME: &'static str = "SetContinuousBalance";
 
     fn build_valid(ctx: &mut TestContext) -> TestInstruction {
-        let setup = SetBalanceSetup::new(ctx);
+        let setup = SetContinuousBalanceSetup::new(ctx);
         setup.build_instruction()
     }
 
@@ -663,31 +676,31 @@ impl InstructionTestFixture for SetBalanceFixture {
     }
 }
 
-pub struct CloseRewardPoolSetup {
-    pub pool_setup: CreateRewardPoolSetup,
+pub struct CloseContinuousPoolSetup {
+    pub pool_setup: CreateContinuousPoolSetup,
     pub authority_token_account: Pubkey,
 }
 
-impl CloseRewardPoolSetup {
+impl CloseContinuousPoolSetup {
     pub fn new(ctx: &mut TestContext) -> Self {
-        let pool_setup = CreateRewardPoolSetup::new(ctx);
+        let pool_setup = CreateContinuousPoolSetup::new(ctx);
         pool_setup.build_instruction(ctx).send_expect_success(ctx);
 
         let authority_token_account =
             ctx.create_token_account(&pool_setup.authority.pubkey(), &pool_setup.reward_mint.pubkey());
 
-        CloseRewardPoolSetup { pool_setup, authority_token_account }
+        CloseContinuousPoolSetup { pool_setup, authority_token_account }
     }
 
     pub fn new_with_clawback(ctx: &mut TestContext, clawback_ts: i64) -> Self {
-        let mut pool_setup = CreateRewardPoolSetup::new(ctx);
+        let mut pool_setup = CreateContinuousPoolSetup::new(ctx);
         pool_setup.clawback_ts = clawback_ts;
         pool_setup.build_instruction(ctx).send_expect_success(ctx);
 
         let authority_token_account =
             ctx.create_token_account(&pool_setup.authority.pubkey(), &pool_setup.reward_mint.pubkey());
 
-        CloseRewardPoolSetup { pool_setup, authority_token_account }
+        CloseContinuousPoolSetup { pool_setup, authority_token_account }
     }
 
     pub fn build_instruction(&self, ctx: &TestContext) -> TestInstruction {
@@ -695,13 +708,13 @@ impl CloseRewardPoolSetup {
     }
 }
 
-pub struct CloseRewardPoolFixture;
+pub struct CloseContinuousPoolFixture;
 
-impl InstructionTestFixture for CloseRewardPoolFixture {
-    const INSTRUCTION_NAME: &'static str = "CloseRewardPool";
+impl InstructionTestFixture for CloseContinuousPoolFixture {
+    const INSTRUCTION_NAME: &'static str = "CloseContinuousPool";
 
     fn build_valid(ctx: &mut TestContext) -> TestInstruction {
-        let setup = CloseRewardPoolSetup::new(ctx);
+        let setup = CloseContinuousPoolSetup::new(ctx);
         setup.build_instruction(ctx)
     }
 
@@ -722,23 +735,23 @@ impl InstructionTestFixture for CloseRewardPoolFixture {
     }
 }
 
-pub struct RevokeUserSetup {
-    pub distribute_setup: DistributeRewardSetup,
+pub struct RevokeContinuousUserSetup {
+    pub distribute_setup: DistributeContinuousRewardSetup,
     pub user_reward_token_account: Pubkey,
     pub authority_reward_token_account: Pubkey,
 }
 
-impl RevokeUserSetup {
+impl RevokeContinuousUserSetup {
     pub fn new(ctx: &mut TestContext) -> Self {
         Self::new_with_revocable(ctx, 3)
     }
 
     pub fn new_with_revocable(ctx: &mut TestContext, revocable: u8) -> Self {
-        let mut pool_setup = CreateRewardPoolSetup::new(ctx);
+        let mut pool_setup = CreateContinuousPoolSetup::new(ctx);
         pool_setup.revocable = revocable;
         pool_setup.build_instruction(ctx).send_expect_success(ctx);
 
-        let opt_in_setup = OptInSetup::new_from_pool(ctx, pool_setup);
+        let opt_in_setup = ContinuousOptInSetup::new_from_pool(ctx, pool_setup);
         opt_in_setup.build_instruction(ctx).send_expect_success(ctx);
 
         let authority_token_account = ctx.create_token_account_with_balance(
@@ -748,7 +761,7 @@ impl RevokeUserSetup {
         );
 
         let distribute_setup =
-            DistributeRewardSetup { opt_in_setup, authority_token_account, amount: DEFAULT_REWARD_AMOUNT };
+            DistributeContinuousRewardSetup { opt_in_setup, authority_token_account, amount: DEFAULT_REWARD_AMOUNT };
         distribute_setup.build_instruction(ctx).send_expect_success(ctx);
 
         let pool_setup = &distribute_setup.opt_in_setup.pool_setup;
@@ -757,7 +770,7 @@ impl RevokeUserSetup {
         let authority_reward_token_account =
             ctx.create_token_account(&pool_setup.authority.pubkey(), &pool_setup.reward_mint.pubkey());
 
-        RevokeUserSetup { distribute_setup, user_reward_token_account, authority_reward_token_account }
+        RevokeContinuousUserSetup { distribute_setup, user_reward_token_account, authority_reward_token_account }
     }
 
     pub fn build_instruction(&self, ctx: &TestContext, revoke_mode: RevokeMode) -> TestInstruction {
@@ -779,13 +792,13 @@ impl RevokeUserSetup {
     }
 }
 
-pub struct RevokeUserFixture;
+pub struct RevokeContinuousUserFixture;
 
-impl InstructionTestFixture for RevokeUserFixture {
-    const INSTRUCTION_NAME: &'static str = "RevokeUser";
+impl InstructionTestFixture for RevokeContinuousUserFixture {
+    const INSTRUCTION_NAME: &'static str = "RevokeContinuousUser";
 
     fn build_valid(ctx: &mut TestContext) -> TestInstruction {
-        let setup = RevokeUserSetup::new(ctx);
+        let setup = RevokeContinuousUserSetup::new(ctx);
         setup.build_instruction(ctx, RevokeMode::NonVested)
     }
 
@@ -794,15 +807,15 @@ impl InstructionTestFixture for RevokeUserFixture {
     }
 
     fn required_writable() -> &'static [usize] {
-        &[2, 3, 4, 5, 7, 8, 9] // reward_pool, user_reward_account, revocation_account, user, reward_vault, user_reward_token_account, authority_reward_token_account
+        &[2, 3, 4, 6, 8, 9, 10] // reward_pool, user_reward_account, revocation_marker, rent_destination, reward_vault, user_reward_token_account, authority_reward_token_account
     }
 
     fn system_program_index() -> Option<usize> {
-        Some(12)
+        Some(13)
     }
 
     fn current_program_index() -> Option<usize> {
-        Some(16)
+        Some(17)
     }
 
     fn data_len() -> usize {
@@ -813,7 +826,7 @@ impl InstructionTestFixture for RevokeUserFixture {
 #[allow(clippy::too_many_arguments)]
 pub fn build_revoke_user_instruction(
     ctx: &TestContext,
-    pool_setup: &CreateRewardPoolSetup,
+    pool_setup: &CreateContinuousPoolSetup,
     user: &Keypair,
     user_reward_pda: &Pubkey,
     user_tracked_token_account: &Pubkey,
@@ -824,14 +837,15 @@ pub fn build_revoke_user_instruction(
     let (event_authority, _) = find_event_authority_pda();
     let (revocation_pda, _) = find_revocation_pda(&pool_setup.reward_pool_pda, &user.pubkey());
 
-    let mut builder = RevokeUserBuilder::new();
+    let mut builder = RevokeContinuousUserBuilder::new();
     builder
         .authority(pool_setup.authority.pubkey())
         .payer(ctx.payer.pubkey())
         .reward_pool(pool_setup.reward_pool_pda)
         .user_reward_account(*user_reward_pda)
-        .revocation_account(revocation_pda)
+        .revocation_marker(revocation_pda)
         .user(user.pubkey())
+        .rent_destination(user.pubkey())
         .user_tracked_token_account(*user_tracked_token_account)
         .reward_vault(pool_setup.reward_vault)
         .user_reward_token_account(*user_reward_token_account)
@@ -846,6 +860,6 @@ pub fn build_revoke_user_instruction(
     TestInstruction {
         instruction: builder.instruction(),
         signers: vec![pool_setup.authority.insecure_clone()],
-        name: "RevokeUser",
+        name: "RevokeContinuousUser",
     }
 }

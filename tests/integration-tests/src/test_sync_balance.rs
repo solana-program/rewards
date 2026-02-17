@@ -1,6 +1,6 @@
 use solana_sdk::signature::Signer;
 
-use crate::fixtures::{build_sync_balance_instruction, OptInSetup, SyncBalanceFixture};
+use crate::fixtures::{build_sync_balance_instruction, ContinuousOptInSetup, SyncContinuousBalanceFixture};
 use crate::utils::{assert_rewards_error, test_not_writable, RewardsError, TestContext};
 
 // ─── Generic validation tests ───
@@ -8,13 +8,13 @@ use crate::utils::{assert_rewards_error, test_not_writable, RewardsError, TestCo
 #[test]
 fn test_sync_balance_pool_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<SyncBalanceFixture>(&mut ctx, 0);
+    test_not_writable::<SyncContinuousBalanceFixture>(&mut ctx, 0);
 }
 
 #[test]
 fn test_sync_balance_user_reward_account_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<SyncBalanceFixture>(&mut ctx, 1);
+    test_not_writable::<SyncContinuousBalanceFixture>(&mut ctx, 1);
 }
 
 // ─── Custom error tests ───
@@ -23,7 +23,7 @@ fn test_sync_balance_user_reward_account_not_writable() {
 fn test_sync_balance_wrong_balance_source() {
     let mut ctx = TestContext::new();
 
-    let setup = OptInSetup::new_authority_set(&mut ctx);
+    let setup = ContinuousOptInSetup::new_authority_set(&mut ctx);
     setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     let sync_ix = build_sync_balance_instruction(

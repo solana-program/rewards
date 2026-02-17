@@ -1,6 +1,6 @@
 use solana_sdk::signature::Signer;
 
-use crate::fixtures::{build_set_balance_instruction, OptInSetup, SetBalanceFixture};
+use crate::fixtures::{build_set_balance_instruction, ContinuousOptInSetup, SetContinuousBalanceFixture};
 use crate::utils::{
     assert_rewards_error, test_missing_signer, test_not_writable, RewardsError, TestContext, TestInstruction,
 };
@@ -10,19 +10,19 @@ use crate::utils::{
 #[test]
 fn test_set_balance_missing_authority_signer() {
     let mut ctx = TestContext::new();
-    test_missing_signer::<SetBalanceFixture>(&mut ctx, 0, 0);
+    test_missing_signer::<SetContinuousBalanceFixture>(&mut ctx, 0, 0);
 }
 
 #[test]
 fn test_set_balance_pool_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<SetBalanceFixture>(&mut ctx, 1);
+    test_not_writable::<SetContinuousBalanceFixture>(&mut ctx, 1);
 }
 
 #[test]
 fn test_set_balance_user_reward_account_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<SetBalanceFixture>(&mut ctx, 2);
+    test_not_writable::<SetContinuousBalanceFixture>(&mut ctx, 2);
 }
 
 // ─── Custom error tests ───
@@ -31,7 +31,7 @@ fn test_set_balance_user_reward_account_not_writable() {
 fn test_set_balance_wrong_balance_source() {
     let mut ctx = TestContext::new();
 
-    let setup = OptInSetup::new(&mut ctx);
+    let setup = ContinuousOptInSetup::new(&mut ctx);
     setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     let set_ix =
@@ -45,11 +45,11 @@ fn test_set_balance_wrong_balance_source() {
 fn test_set_balance_unauthorized_authority() {
     let mut ctx = TestContext::new();
 
-    let setup = OptInSetup::new_authority_set(&mut ctx);
+    let setup = ContinuousOptInSetup::new_authority_set(&mut ctx);
     setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     let wrong_authority = ctx.create_funded_keypair();
-    let mut builder = rewards_program_client::instructions::SetBalanceBuilder::new();
+    let mut builder = rewards_program_client::instructions::SetContinuousBalanceBuilder::new();
     builder
         .authority(wrong_authority.pubkey())
         .reward_pool(setup.pool_setup.reward_pool_pda)
@@ -57,7 +57,11 @@ fn test_set_balance_unauthorized_authority() {
         .user(setup.user.pubkey())
         .balance(500_000);
 
-    let ix = TestInstruction { instruction: builder.instruction(), signers: vec![wrong_authority], name: "SetBalance" };
+    let ix = TestInstruction {
+        instruction: builder.instruction(),
+        signers: vec![wrong_authority],
+        name: "SetContinuousBalance",
+    };
     let error = ix.send_expect_error(&mut ctx);
     assert_rewards_error(error, RewardsError::UnauthorizedAuthority);
 }

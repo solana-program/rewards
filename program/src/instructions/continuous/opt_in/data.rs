@@ -2,11 +2,11 @@ use pinocchio::error::ProgramError;
 
 use crate::{require_len, traits::InstructionData};
 
-pub struct OptInData {
+pub struct ContinuousOptInData {
     pub bump: u8,
 }
 
-impl<'a> TryFrom<&'a [u8]> for OptInData {
+impl<'a> TryFrom<&'a [u8]> for ContinuousOptInData {
     type Error = ProgramError;
 
     #[inline(always)]
@@ -16,6 +16,6 @@ impl<'a> TryFrom<&'a [u8]> for OptInData {
     }
 }
 
-impl<'a> InstructionData<'a> for OptInData {
+impl<'a> InstructionData<'a> for ContinuousOptInData {
     const LEN: usize = 1;
 }

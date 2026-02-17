@@ -1,6 +1,9 @@
 use solana_sdk::signature::Signer;
 
-use crate::fixtures::{CreateRewardPoolSetup, DistributeRewardFixture, DistributeRewardSetup, DEFAULT_REWARD_AMOUNT};
+use crate::fixtures::{
+    CreateContinuousPoolSetup, DistributeContinuousRewardFixture, DistributeContinuousRewardSetup,
+    DEFAULT_REWARD_AMOUNT,
+};
 use crate::utils::{
     assert_rewards_error, find_event_authority_pda, test_empty_data, test_missing_signer, test_not_writable,
     test_truncated_data, test_wrong_current_program, RewardsError, TestContext, TestInstruction,
@@ -11,43 +14,43 @@ use crate::utils::{
 #[test]
 fn test_distribute_reward_missing_authority_signer() {
     let mut ctx = TestContext::new();
-    test_missing_signer::<DistributeRewardFixture>(&mut ctx, 0, 0);
+    test_missing_signer::<DistributeContinuousRewardFixture>(&mut ctx, 0, 0);
 }
 
 #[test]
 fn test_distribute_reward_pool_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<DistributeRewardFixture>(&mut ctx, 1);
+    test_not_writable::<DistributeContinuousRewardFixture>(&mut ctx, 1);
 }
 
 #[test]
 fn test_distribute_reward_vault_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<DistributeRewardFixture>(&mut ctx, 3);
+    test_not_writable::<DistributeContinuousRewardFixture>(&mut ctx, 3);
 }
 
 #[test]
 fn test_distribute_reward_authority_token_account_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<DistributeRewardFixture>(&mut ctx, 4);
+    test_not_writable::<DistributeContinuousRewardFixture>(&mut ctx, 4);
 }
 
 #[test]
 fn test_distribute_reward_wrong_current_program() {
     let mut ctx = TestContext::new();
-    test_wrong_current_program::<DistributeRewardFixture>(&mut ctx);
+    test_wrong_current_program::<DistributeContinuousRewardFixture>(&mut ctx);
 }
 
 #[test]
 fn test_distribute_reward_empty_data() {
     let mut ctx = TestContext::new();
-    test_empty_data::<DistributeRewardFixture>(&mut ctx);
+    test_empty_data::<DistributeContinuousRewardFixture>(&mut ctx);
 }
 
 #[test]
 fn test_distribute_reward_truncated_data() {
     let mut ctx = TestContext::new();
-    test_truncated_data::<DistributeRewardFixture>(&mut ctx);
+    test_truncated_data::<DistributeContinuousRewardFixture>(&mut ctx);
 }
 
 // ─── Custom error tests ───
@@ -55,13 +58,13 @@ fn test_distribute_reward_truncated_data() {
 #[test]
 fn test_distribute_reward_unauthorized_authority() {
     let mut ctx = TestContext::new();
-    let setup = DistributeRewardSetup::new(&mut ctx);
+    let setup = DistributeContinuousRewardSetup::new(&mut ctx);
 
     let wrong_authority = ctx.create_funded_keypair();
     let (event_authority, _) = find_event_authority_pda();
     let pool = &setup.opt_in_setup.pool_setup;
 
-    let mut builder = rewards_program_client::instructions::DistributeRewardBuilder::new();
+    let mut builder = rewards_program_client::instructions::DistributeContinuousRewardBuilder::new();
     builder
         .authority(wrong_authority.pubkey())
         .reward_pool(pool.reward_pool_pda)
@@ -75,7 +78,7 @@ fn test_distribute_reward_unauthorized_authority() {
     let ix = TestInstruction {
         instruction: builder.instruction(),
         signers: vec![wrong_authority],
-        name: "DistributeReward",
+        name: "DistributeContinuousReward",
     };
     let error = ix.send_expect_error(&mut ctx);
     assert_rewards_error(error, RewardsError::UnauthorizedAuthority);
@@ -84,7 +87,7 @@ fn test_distribute_reward_unauthorized_authority() {
 #[test]
 fn test_distribute_reward_zero_amount() {
     let mut ctx = TestContext::new();
-    let setup = DistributeRewardSetup::new_with_amount(&mut ctx, 0);
+    let setup = DistributeContinuousRewardSetup::new_with_amount(&mut ctx, 0);
     let ix = setup.build_instruction(&ctx);
 
     let error = ix.send_expect_error(&mut ctx);
@@ -95,7 +98,7 @@ fn test_distribute_reward_zero_amount() {
 fn test_distribute_reward_no_opted_in_users() {
     let mut ctx = TestContext::new();
 
-    let pool_setup = CreateRewardPoolSetup::new(&mut ctx);
+    let pool_setup = CreateContinuousPoolSetup::new(&mut ctx);
     pool_setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     let authority_token_account = ctx.create_token_account_with_balance(
@@ -105,7 +108,7 @@ fn test_distribute_reward_no_opted_in_users() {
     );
     let (event_authority, _) = find_event_authority_pda();
 
-    let mut builder = rewards_program_client::instructions::DistributeRewardBuilder::new();
+    let mut builder = rewards_program_client::instructions::DistributeContinuousRewardBuilder::new();
     builder
         .authority(pool_setup.authority.pubkey())
         .reward_pool(pool_setup.reward_pool_pda)
@@ -119,7 +122,7 @@ fn test_distribute_reward_no_opted_in_users() {
     let ix = TestInstruction {
         instruction: builder.instruction(),
         signers: vec![pool_setup.authority.insecure_clone()],
-        name: "DistributeReward",
+        name: "DistributeContinuousReward",
     };
     let error = ix.send_expect_error(&mut ctx);
     assert_rewards_error(error, RewardsError::NoOptedInUsers);

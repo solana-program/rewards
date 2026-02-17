@@ -9,13 +9,14 @@ use crate::{
     },
 };
 
-pub struct RevokeUserAccounts<'a> {
+pub struct RevokeContinuousUserAccounts<'a> {
     pub authority: &'a AccountView,
     pub payer: &'a AccountView,
     pub reward_pool: &'a AccountView,
     pub user_reward_account: &'a AccountView,
-    pub revocation_account: &'a AccountView,
+    pub revocation_marker: &'a AccountView,
     pub user: &'a AccountView,
+    pub rent_destination: &'a AccountView,
     pub user_tracked_token_account: &'a AccountView,
     pub reward_vault: &'a AccountView,
     pub user_reward_token_account: &'a AccountView,
@@ -29,12 +30,12 @@ pub struct RevokeUserAccounts<'a> {
     pub program: &'a AccountView,
 }
 
-impl<'a> TryFrom<&'a [AccountView]> for RevokeUserAccounts<'a> {
+impl<'a> TryFrom<&'a [AccountView]> for RevokeContinuousUserAccounts<'a> {
     type Error = ProgramError;
 
     #[inline(always)]
     fn try_from(accounts: &'a [AccountView]) -> Result<Self, Self::Error> {
-        let [authority, payer, reward_pool, user_reward_account, revocation_account, user, user_tracked_token_account, reward_vault, user_reward_token_account, authority_reward_token_account, tracked_mint, reward_mint, system_program, tracked_token_program, reward_token_program, event_authority, program] =
+        let [authority, payer, reward_pool, user_reward_account, revocation_marker, user, rent_destination, user_tracked_token_account, reward_vault, user_reward_token_account, authority_reward_token_account, tracked_mint, reward_mint, system_program, tracked_token_program, reward_token_program, event_authority, program] =
             accounts
         else {
             return Err(ProgramError::NotEnoughAccountKeys);
@@ -45,8 +46,8 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeUserAccounts<'a> {
 
         verify_writable(reward_pool, true)?;
         verify_writable(user_reward_account, true)?;
-        verify_writable(revocation_account, true)?;
-        verify_writable(user, true)?;
+        verify_writable(revocation_marker, true)?;
+        verify_writable(rent_destination, false)?;
         verify_writable(reward_vault, true)?;
         verify_writable(user_reward_token_account, true)?;
         verify_writable(authority_reward_token_account, true)?;
@@ -89,8 +90,9 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeUserAccounts<'a> {
             payer,
             reward_pool,
             user_reward_account,
-            revocation_account,
+            revocation_marker,
             user,
+            rent_destination,
             user_tracked_token_account,
             reward_vault,
             user_reward_token_account,
@@ -106,4 +108,4 @@ impl<'a> TryFrom<&'a [AccountView]> for RevokeUserAccounts<'a> {
     }
 }
 
-impl<'a> InstructionAccounts<'a> for RevokeUserAccounts<'a> {}
+impl<'a> InstructionAccounts<'a> for RevokeContinuousUserAccounts<'a> {}

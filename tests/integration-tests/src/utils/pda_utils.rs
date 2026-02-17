@@ -43,9 +43,14 @@ pub fn find_revocation_pda(parent: &Pubkey, user: &Pubkey) -> (Pubkey, u8) {
     Pubkey::find_program_address(&[REVOCATION_SEED, parent.as_ref(), user.as_ref()], &REWARDS_PROGRAM_ID)
 }
 
-pub fn find_reward_pool_pda(reward_mint: &Pubkey, authority: &Pubkey, seed: &Pubkey) -> (Pubkey, u8) {
+pub fn find_reward_pool_pda(
+    reward_mint: &Pubkey,
+    tracked_mint: &Pubkey,
+    authority: &Pubkey,
+    seed: &Pubkey,
+) -> (Pubkey, u8) {
     Pubkey::find_program_address(
-        &[REWARD_POOL_SEED, reward_mint.as_ref(), authority.as_ref(), seed.as_ref()],
+        &[REWARD_POOL_SEED, reward_mint.as_ref(), tracked_mint.as_ref(), authority.as_ref(), seed.as_ref()],
         &REWARDS_PROGRAM_ID,
     )
 }

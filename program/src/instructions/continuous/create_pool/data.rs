@@ -1,15 +1,15 @@
 use pinocchio::error::ProgramError;
 
-use crate::{require_len, traits::InstructionData, utils::BalanceSource};
+use crate::{errors::RewardsProgramError, require_len, traits::InstructionData, utils::BalanceSource};
 
-pub struct CreateRewardPoolData {
+pub struct CreateContinuousPoolData {
     pub bump: u8,
     pub balance_source: BalanceSource,
     pub revocable: u8,
     pub clawback_ts: i64,
 }
 
-impl<'a> TryFrom<&'a [u8]> for CreateRewardPoolData {
+impl<'a> TryFrom<&'a [u8]> for CreateContinuousPoolData {
     type Error = ProgramError;
 
     #[inline(always)]
@@ -25,6 +25,13 @@ impl<'a> TryFrom<&'a [u8]> for CreateRewardPoolData {
     }
 }
 
-impl<'a> InstructionData<'a> for CreateRewardPoolData {
+impl<'a> InstructionData<'a> for CreateContinuousPoolData {
     const LEN: usize = 11; // bump(1) + balance_source(1) + revocable(1) + clawback_ts(8)
+
+    fn validate(&self) -> Result<(), ProgramError> {
+        if self.clawback_ts < 0 {
+            return Err(RewardsProgramError::InvalidTimestamp.into());
+        }
+        Ok(())
+    }
 }

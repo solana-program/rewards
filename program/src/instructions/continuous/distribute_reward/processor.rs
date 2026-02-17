@@ -10,14 +10,14 @@ use crate::{
     ID,
 };
 
-use super::DistributeReward;
+use super::DistributeContinuousReward;
 
-pub fn process_distribute_reward(
+pub fn process_distribute_continuous_reward(
     _program_id: &Address,
     accounts: &[AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    let ix = DistributeReward::try_from((instruction_data, accounts))?;
+    let ix = DistributeContinuousReward::try_from((instruction_data, accounts))?;
     ix.data.validate()?;
 
     let pool_data = ix.accounts.reward_pool.try_borrow()?;
@@ -41,10 +41,18 @@ pub fn process_distribute_reward(
         return Err(RewardsProgramError::DistributionAmountTooSmall.into());
     }
 
+    // Back-compute the effective amount that users can actually claim from delta_rpt.
+    // This avoids stranded dust in the vault from integer division truncation.
+    let effective_amount = delta_rpt
+        .checked_mul(pool.opted_in_supply as u128)
+        .ok_or(RewardsProgramError::MathOverflow)?
+        .checked_div(REWARD_PRECISION)
+        .ok_or(RewardsProgramError::MathOverflow)? as u64;
+
     pool.reward_per_token = pool.reward_per_token.checked_add(delta_rpt).ok_or(RewardsProgramError::MathOverflow)?;
 
     pool.total_distributed =
-        pool.total_distributed.checked_add(ix.data.amount).ok_or(RewardsProgramError::MathOverflow)?;
+        pool.total_distributed.checked_add(effective_amount).ok_or(RewardsProgramError::MathOverflow)?;
 
     let decimals = get_mint_decimals(ix.accounts.reward_mint)?;
 
@@ -53,7 +61,7 @@ pub fn process_distribute_reward(
         mint: ix.accounts.reward_mint,
         to: ix.accounts.reward_vault,
         authority: ix.accounts.authority,
-        amount: ix.data.amount,
+        amount: effective_amount,
         decimals,
         token_program: ix.accounts.reward_token_program.address(),
     }
@@ -63,7 +71,8 @@ pub fn process_distribute_reward(
     pool.write_to_slice(&mut pool_data)?;
     drop(pool_data);
 
-    let event = RewardDistributedEvent::new(*ix.accounts.reward_pool.address(), ix.data.amount, pool.reward_per_token);
+    let event =
+        RewardDistributedEvent::new(*ix.accounts.reward_pool.address(), effective_amount, pool.reward_per_token);
     emit_event(&ID, ix.accounts.event_authority, ix.accounts.program, &event.to_bytes())?;
 
     Ok(())

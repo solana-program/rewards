@@ -2,9 +2,9 @@ use pinocchio::error::ProgramError;
 
 use crate::traits::InstructionData;
 
-pub struct CloseRewardPoolData;
+pub struct CloseContinuousPoolData;
 
-impl<'a> TryFrom<&'a [u8]> for CloseRewardPoolData {
+impl<'a> TryFrom<&'a [u8]> for CloseContinuousPoolData {
     type Error = ProgramError;
 
     #[inline(always)]
@@ -13,6 +13,6 @@ impl<'a> TryFrom<&'a [u8]> for CloseRewardPoolData {
     }
 }
 
-impl<'a> InstructionData<'a> for CloseRewardPoolData {
+impl<'a> InstructionData<'a> for CloseContinuousPoolData {
     const LEN: usize = 0;
 }

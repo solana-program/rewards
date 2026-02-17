@@ -1,3 +1,4 @@
+pub mod balance_synced;
 pub mod claim_closed;
 pub mod claimed;
 pub mod distribution_closed;
@@ -9,6 +10,7 @@ pub mod recipient_revoked;
 pub mod reward_distributed;
 pub mod shared;
 
+pub use balance_synced::*;
 pub use claim_closed::*;
 pub use claimed::*;
 pub use distribution_closed::*;

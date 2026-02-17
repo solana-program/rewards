@@ -17,6 +17,7 @@ pub enum EventDiscriminators {
     RewardDistributed = 6,
     OptedIn = 7,
     OptedOut = 8,
+    BalanceSynced = 9,
 }
 
 /// Event discriminator with Anchor-compatible prefix

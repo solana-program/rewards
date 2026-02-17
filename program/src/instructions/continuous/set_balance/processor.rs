@@ -8,10 +8,14 @@ use crate::{
     ID,
 };
 
-use super::SetBalance;
+use super::SetContinuousBalance;
 
-pub fn process_set_balance(_program_id: &Address, accounts: &[AccountView], instruction_data: &[u8]) -> ProgramResult {
-    let ix = SetBalance::try_from((instruction_data, accounts))?;
+pub fn process_set_continuous_balance(
+    _program_id: &Address,
+    accounts: &[AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let ix = SetContinuousBalance::try_from((instruction_data, accounts))?;
 
     let pool_data = ix.accounts.reward_pool.try_borrow()?;
     let mut pool = RewardPool::from_account(&pool_data, ix.accounts.reward_pool, &ID)?;

@@ -61,15 +61,15 @@ Revocation is opt-in per distribution via the `revocable` bitmask field. A `Revo
 
 ## Account Types
 
-| Account            | PDA Seeds                                        | Description                                   |
-| ------------------ | ------------------------------------------------ | --------------------------------------------- |
-| DirectDistribution | `["direct_distribution", mint, authority, seed]` | Distribution config (authority, mint, totals) |
-| DirectRecipient    | `["direct_recipient", distribution, recipient]`  | Recipient allocation and vesting schedule     |
-| MerkleDistribution | `["merkle_distribution", mint, authority, seed]` | Distribution config with merkle root          |
-| MerkleClaim        | `["merkle_claim", distribution, claimant]`       | Tracks claimed amount per claimant            |
-| RewardPool         | `["reward_pool", reward_mint, authority, seed]`  | Continuous pool config and reward accumulator |
-| UserRewardAccount  | `["user_reward", reward_pool, user]`             | Tracks user participation and accrued rewards |
-| Revocation         | `["revocation", parent, user]`                   | Marker PDA blocking revoked users (all types) |
+| Account            | PDA Seeds                                                     | Description                                   |
+| ------------------ | ------------------------------------------------------------- | --------------------------------------------- |
+| DirectDistribution | `["direct_distribution", mint, authority, seed]`              | Distribution config (authority, mint, totals) |
+| DirectRecipient    | `["direct_recipient", distribution, recipient]`               | Recipient allocation and vesting schedule     |
+| MerkleDistribution | `["merkle_distribution", mint, authority, seed]`              | Distribution config with merkle root          |
+| MerkleClaim        | `["merkle_claim", distribution, claimant]`                    | Tracks claimed amount per claimant            |
+| RewardPool         | `["reward_pool", reward_mint, tracked_mint, authority, seed]` | Continuous pool config and reward accumulator |
+| UserRewardAccount  | `["user_reward", reward_pool, user]`                          | Tracks user participation and accrued rewards |
+| Revocation         | `["revocation", parent, user]`                                | Marker PDA blocking revoked users (all types) |
 
 ## Instructions
 
@@ -96,17 +96,17 @@ Revocation is opt-in per distribution via the `revocable` bitmask field. A `Revo
 
 ### Continuous Reward Pool
 
-| #   | Instruction      | Description                                              |
-| --- | ---------------- | -------------------------------------------------------- |
-| 11  | CreateRewardPool | Create pool with tracked/reward mints and balance source |
-| 12  | OptIn            | User opts in; initial balance snapshot taken             |
-| 14  | DistributeReward | Authority deposits rewards; accumulator updated          |
-| 16  | SyncBalance      | Permissionless: sync user's on-chain token balance       |
-| 17  | SetBalance       | Authority sets user balance (AuthoritySet mode only)     |
-| 15  | ClaimContinuous  | User claims accrued rewards                              |
-| 19  | RevokeUser       | Authority revokes user from pool                         |
-| 13  | OptOut           | User opts out and claims remaining rewards               |
-| 18  | CloseRewardPool  | Authority closes pool, reclaims remaining tokens         |
+| #   | Instruction                | Description                                              |
+| --- | -------------------------- | -------------------------------------------------------- |
+| 11  | CreateContinuousPool       | Create pool with tracked/reward mints and balance source |
+| 12  | ContinuousOptIn            | User opts in; initial balance snapshot taken             |
+| 14  | DistributeContinuousReward | Authority deposits rewards; accumulator updated          |
+| 16  | SyncContinuousBalance      | Permissionless: sync user's on-chain token balance       |
+| 17  | SetContinuousBalance       | Authority sets user balance (AuthoritySet mode only)     |
+| 15  | ClaimContinuous            | User claims accrued rewards                              |
+| 19  | RevokeContinuousUser       | Authority revokes user from pool                         |
+| 13  | ContinuousOptOut           | User opts out and claims remaining rewards               |
+| 18  | CloseContinuousPool        | Authority closes pool, reclaims remaining tokens         |
 
 ## Workflow
 
@@ -179,14 +179,14 @@ sequenceDiagram
     participant Program
     participant User
 
-    Authority->>Program: CreateRewardPool
+    Authority->>Program: CreateContinuousPool
     Program->>Program: create RewardPool PDA + Vault ATA
 
-    User->>Program: OptIn
+    User->>Program: ContinuousOptIn
     Program->>Program: create UserRewardAccount PDA
     Program->>Program: snapshot initial balance
 
-    Authority->>Program: DistributeReward
+    Authority->>Program: DistributeContinuousReward
     Program->>Program: update reward_per_token accumulator
 
     User->>Program: ClaimContinuous
@@ -202,7 +202,7 @@ sequenceDiagram
     participant Program
     participant Accounts
 
-    Authority->>Program: CloseDirectDistribution / CloseMerkleDistribution / CloseRewardPool
+    Authority->>Program: CloseDirectDistribution / CloseMerkleDistribution / CloseContinuousPool
     Program->>Accounts: return remaining tokens
     Program->>Accounts: close PDA
     Program->>Authority: reclaim rent
@@ -210,6 +210,9 @@ sequenceDiagram
 
 ## Documentation
 
+- [Direct Distribution](program/src/instructions/direct/README.md) - On-chain recipient accounts with vesting
+- [Merkle Distribution](program/src/instructions/merkle/README.md) - Off-chain tree, on-chain root verification
+- [Continuous Reward Pool](program/src/instructions/continuous/README.md) - Proportional balance-based rewards
 - [CU Benchmarks](docs/CU_BENCHMARKS.md) - Compute unit usage per instruction
 
 ## Local Development

@@ -9,7 +9,7 @@ use crate::{
     },
 };
 
-pub struct CreateRewardPoolAccounts<'a> {
+pub struct CreateContinuousPoolAccounts<'a> {
     pub payer: &'a AccountView,
     pub authority: &'a AccountView,
     pub seed: &'a AccountView,
@@ -24,7 +24,7 @@ pub struct CreateRewardPoolAccounts<'a> {
     pub program: &'a AccountView,
 }
 
-impl<'a> TryFrom<&'a [AccountView]> for CreateRewardPoolAccounts<'a> {
+impl<'a> TryFrom<&'a [AccountView]> for CreateContinuousPoolAccounts<'a> {
     type Error = ProgramError;
 
     #[inline(always)]
@@ -79,4 +79,4 @@ impl<'a> TryFrom<&'a [AccountView]> for CreateRewardPoolAccounts<'a> {
     }
 }
 
-impl<'a> InstructionAccounts<'a> for CreateRewardPoolAccounts<'a> {}
+impl<'a> InstructionAccounts<'a> for CreateContinuousPoolAccounts<'a> {}

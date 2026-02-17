@@ -1,7 +1,7 @@
 use rewards_program_client::types::RevokeMode;
 use solana_sdk::signature::Signer;
 
-use crate::fixtures::{RevokeUserFixture, RevokeUserSetup};
+use crate::fixtures::{RevokeContinuousUserFixture, RevokeContinuousUserSetup};
 use crate::utils::{
     assert_account_closed, assert_rewards_error, find_event_authority_pda, get_reward_pool, test_empty_data,
     test_missing_signer, test_not_writable, test_truncated_data, test_wrong_current_program, test_wrong_system_program,
@@ -13,61 +13,61 @@ use crate::utils::{
 #[test]
 fn test_revoke_user_missing_authority_signer() {
     let mut ctx = TestContext::new();
-    test_missing_signer::<RevokeUserFixture>(&mut ctx, 0, 0);
+    test_missing_signer::<RevokeContinuousUserFixture>(&mut ctx, 0, 0);
 }
 
 #[test]
 fn test_revoke_user_pool_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<RevokeUserFixture>(&mut ctx, 2);
+    test_not_writable::<RevokeContinuousUserFixture>(&mut ctx, 2);
 }
 
 #[test]
 fn test_revoke_user_user_reward_account_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<RevokeUserFixture>(&mut ctx, 3);
+    test_not_writable::<RevokeContinuousUserFixture>(&mut ctx, 3);
 }
 
 #[test]
-fn test_revoke_user_revocation_account_not_writable() {
+fn test_revoke_user_revocation_marker_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<RevokeUserFixture>(&mut ctx, 4);
+    test_not_writable::<RevokeContinuousUserFixture>(&mut ctx, 4);
 }
 
 #[test]
 fn test_revoke_user_vault_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<RevokeUserFixture>(&mut ctx, 7);
+    test_not_writable::<RevokeContinuousUserFixture>(&mut ctx, 8);
 }
 
 #[test]
 fn test_revoke_user_user_reward_token_account_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<RevokeUserFixture>(&mut ctx, 8);
+    test_not_writable::<RevokeContinuousUserFixture>(&mut ctx, 9);
 }
 
 #[test]
 fn test_revoke_user_wrong_system_program() {
     let mut ctx = TestContext::new();
-    test_wrong_system_program::<RevokeUserFixture>(&mut ctx);
+    test_wrong_system_program::<RevokeContinuousUserFixture>(&mut ctx);
 }
 
 #[test]
 fn test_revoke_user_wrong_current_program() {
     let mut ctx = TestContext::new();
-    test_wrong_current_program::<RevokeUserFixture>(&mut ctx);
+    test_wrong_current_program::<RevokeContinuousUserFixture>(&mut ctx);
 }
 
 #[test]
 fn test_revoke_user_empty_data() {
     let mut ctx = TestContext::new();
-    test_empty_data::<RevokeUserFixture>(&mut ctx);
+    test_empty_data::<RevokeContinuousUserFixture>(&mut ctx);
 }
 
 #[test]
 fn test_revoke_user_truncated_data() {
     let mut ctx = TestContext::new();
-    test_truncated_data::<RevokeUserFixture>(&mut ctx);
+    test_truncated_data::<RevokeContinuousUserFixture>(&mut ctx);
 }
 
 // ─── Custom error tests ───
@@ -75,7 +75,7 @@ fn test_revoke_user_truncated_data() {
 #[test]
 fn test_revoke_user_unauthorized_authority() {
     let mut ctx = TestContext::new();
-    let setup = RevokeUserSetup::new(&mut ctx);
+    let setup = RevokeContinuousUserSetup::new(&mut ctx);
 
     let wrong_authority = ctx.create_funded_keypair();
     let pool_setup = &setup.distribute_setup.opt_in_setup.pool_setup;
@@ -89,14 +89,15 @@ fn test_revoke_user_unauthorized_authority() {
     let wrong_authority_reward_ta =
         ctx.create_token_account(&wrong_authority.pubkey(), &pool_setup.reward_mint.pubkey());
 
-    let mut builder = rewards_program_client::instructions::RevokeUserBuilder::new();
+    let mut builder = rewards_program_client::instructions::RevokeContinuousUserBuilder::new();
     builder
         .authority(wrong_authority.pubkey())
         .payer(wrong_authority.pubkey())
         .reward_pool(pool_setup.reward_pool_pda)
         .user_reward_account(*user_reward_pda)
-        .revocation_account(revocation_pda)
+        .revocation_marker(revocation_pda)
         .user(user.pubkey())
+        .rent_destination(user.pubkey())
         .user_tracked_token_account(*user_tracked_ta)
         .reward_vault(pool_setup.reward_vault)
         .user_reward_token_account(setup.user_reward_token_account)
@@ -108,7 +109,11 @@ fn test_revoke_user_unauthorized_authority() {
         .event_authority(event_authority)
         .revoke_mode(RevokeMode::NonVested);
 
-    let ix = TestInstruction { instruction: builder.instruction(), signers: vec![wrong_authority], name: "RevokeUser" };
+    let ix = TestInstruction {
+        instruction: builder.instruction(),
+        signers: vec![wrong_authority],
+        name: "RevokeContinuousUser",
+    };
     let error = ix.send_expect_error(&mut ctx);
     assert_rewards_error(error, RewardsError::UnauthorizedAuthority);
 }
@@ -116,7 +121,7 @@ fn test_revoke_user_unauthorized_authority() {
 #[test]
 fn test_revoke_user_not_revocable() {
     let mut ctx = TestContext::new();
-    let setup = RevokeUserSetup::new_with_revocable(&mut ctx, 0);
+    let setup = RevokeContinuousUserSetup::new_with_revocable(&mut ctx, 0);
     let ix = setup.build_instruction(&ctx, RevokeMode::NonVested);
 
     let error = ix.send_expect_error(&mut ctx);
@@ -126,7 +131,7 @@ fn test_revoke_user_not_revocable() {
 #[test]
 fn test_revoke_user_non_vested_rejected_when_only_full_bit_set() {
     let mut ctx = TestContext::new();
-    let setup = RevokeUserSetup::new_with_revocable(&mut ctx, 2);
+    let setup = RevokeContinuousUserSetup::new_with_revocable(&mut ctx, 2);
     let ix = setup.build_instruction(&ctx, RevokeMode::NonVested);
 
     let error = ix.send_expect_error(&mut ctx);
@@ -136,7 +141,7 @@ fn test_revoke_user_non_vested_rejected_when_only_full_bit_set() {
 #[test]
 fn test_revoke_user_full_rejected_when_only_non_vested_bit_set() {
     let mut ctx = TestContext::new();
-    let setup = RevokeUserSetup::new_with_revocable(&mut ctx, 1);
+    let setup = RevokeContinuousUserSetup::new_with_revocable(&mut ctx, 1);
     let ix = setup.build_instruction(&ctx, RevokeMode::Full);
 
     let error = ix.send_expect_error(&mut ctx);
@@ -146,7 +151,7 @@ fn test_revoke_user_full_rejected_when_only_non_vested_bit_set() {
 #[test]
 fn test_revoke_user_already_revoked() {
     let mut ctx = TestContext::new();
-    let setup = RevokeUserSetup::new(&mut ctx);
+    let setup = RevokeContinuousUserSetup::new(&mut ctx);
     let ix = setup.build_instruction(&ctx, RevokeMode::NonVested);
     ix.send_expect_success(&mut ctx);
 
@@ -160,7 +165,7 @@ fn test_revoke_user_already_revoked() {
 #[test]
 fn test_revoke_user_success_non_vested() {
     let mut ctx = TestContext::new();
-    let setup = RevokeUserSetup::new(&mut ctx);
+    let setup = RevokeContinuousUserSetup::new(&mut ctx);
     let ix = setup.build_instruction(&ctx, RevokeMode::NonVested);
     ix.send_expect_success(&mut ctx);
 
@@ -174,7 +179,7 @@ fn test_revoke_user_success_non_vested() {
 #[test]
 fn test_revoke_user_success_full() {
     let mut ctx = TestContext::new();
-    let setup = RevokeUserSetup::new(&mut ctx);
+    let setup = RevokeContinuousUserSetup::new(&mut ctx);
     let ix = setup.build_instruction(&ctx, RevokeMode::Full);
     ix.send_expect_success(&mut ctx);
 

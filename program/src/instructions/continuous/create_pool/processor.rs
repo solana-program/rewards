@@ -9,14 +9,14 @@ use crate::{
     ID,
 };
 
-use super::CreateRewardPool;
+use super::CreateContinuousPool;
 
-pub fn process_create_reward_pool(
+pub fn process_create_continuous_pool(
     _program_id: &Address,
     accounts: &[AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    let ix = CreateRewardPool::try_from((instruction_data, accounts))?;
+    let ix = CreateContinuousPool::try_from((instruction_data, accounts))?;
     ix.data.validate()?;
 
     let pool = RewardPool::new(
@@ -34,7 +34,7 @@ pub fn process_create_reward_pool(
 
     let bump_seed = [ix.data.bump];
     let pool_seeds = pool.seeds_with_bump(&bump_seed);
-    let pool_seeds_array: [_; 5] = pool_seeds.try_into().map_err(|_| ProgramError::InvalidArgument)?;
+    let pool_seeds_array: [_; 6] = pool_seeds.try_into().map_err(|_| ProgramError::InvalidArgument)?;
 
     create_pda_account(ix.accounts.payer, RewardPool::LEN, &ID, ix.accounts.reward_pool, pool_seeds_array)?;
 

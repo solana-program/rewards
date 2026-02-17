@@ -2,11 +2,11 @@ use pinocchio::error::ProgramError;
 
 use crate::{require_len, traits::InstructionData, utils::RevokeMode};
 
-pub struct RevokeUserData {
+pub struct RevokeContinuousUserData {
     pub revoke_mode: RevokeMode,
 }
 
-impl<'a> TryFrom<&'a [u8]> for RevokeUserData {
+impl<'a> TryFrom<&'a [u8]> for RevokeContinuousUserData {
     type Error = ProgramError;
 
     #[inline(always)]
@@ -19,7 +19,7 @@ impl<'a> TryFrom<&'a [u8]> for RevokeUserData {
     }
 }
 
-impl<'a> InstructionData<'a> for RevokeUserData {
+impl<'a> InstructionData<'a> for RevokeContinuousUserData {
     const LEN: usize = 1;
 }
 
@@ -31,7 +31,7 @@ mod tests {
     #[test]
     fn test_try_from_valid_non_vested() {
         let data = [0u8];
-        let result = RevokeUserData::try_from(&data[..]);
+        let result = RevokeContinuousUserData::try_from(&data[..]);
         assert!(result.is_ok());
         assert_eq!(result.unwrap().revoke_mode, RevokeMode::NonVested);
     }
@@ -39,7 +39,7 @@ mod tests {
     #[test]
     fn test_try_from_valid_full() {
         let data = [1u8];
-        let result = RevokeUserData::try_from(&data[..]);
+        let result = RevokeContinuousUserData::try_from(&data[..]);
         assert!(result.is_ok());
         assert_eq!(result.unwrap().revoke_mode, RevokeMode::Full);
     }
@@ -47,14 +47,14 @@ mod tests {
     #[test]
     fn test_try_from_data_too_short() {
         let data: [u8; 0] = [];
-        let result = RevokeUserData::try_from(&data[..]);
+        let result = RevokeContinuousUserData::try_from(&data[..]);
         assert_eq!(result.err(), Some(ProgramError::InvalidInstructionData));
     }
 
     #[test]
     fn test_try_from_invalid_mode() {
         let data = [2u8];
-        let result = RevokeUserData::try_from(&data[..]);
+        let result = RevokeContinuousUserData::try_from(&data[..]);
         assert_eq!(result.err(), Some(ProgramError::Custom(RewardsProgramError::InvalidRevokeMode as u32)));
     }
 }

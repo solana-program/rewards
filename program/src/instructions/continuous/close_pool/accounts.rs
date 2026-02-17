@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-pub struct CloseRewardPoolAccounts<'a> {
+pub struct CloseContinuousPoolAccounts<'a> {
     pub authority: &'a AccountView,
     pub reward_pool: &'a AccountView,
     pub reward_mint: &'a AccountView,
@@ -19,7 +19,7 @@ pub struct CloseRewardPoolAccounts<'a> {
     pub program: &'a AccountView,
 }
 
-impl<'a> TryFrom<&'a [AccountView]> for CloseRewardPoolAccounts<'a> {
+impl<'a> TryFrom<&'a [AccountView]> for CloseContinuousPoolAccounts<'a> {
     type Error = ProgramError;
 
     #[inline(always)]
@@ -61,4 +61,4 @@ impl<'a> TryFrom<&'a [AccountView]> for CloseRewardPoolAccounts<'a> {
     }
 }
 
-impl<'a> InstructionAccounts<'a> for CloseRewardPoolAccounts<'a> {}
+impl<'a> InstructionAccounts<'a> for CloseContinuousPoolAccounts<'a> {}

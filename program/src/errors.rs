@@ -124,6 +124,10 @@ pub enum RewardsProgramError {
     /// (29) User has already been revoked from this reward pool
     #[error("User has already been revoked from this reward pool")]
     UserAlreadyRevoked,
+
+    /// (30) Invalid timestamp value
+    #[error("Invalid timestamp value")]
+    InvalidTimestamp,
 }
 
 impl From<RewardsProgramError> for ProgramError {

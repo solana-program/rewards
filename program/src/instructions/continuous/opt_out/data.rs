@@ -2,9 +2,9 @@ use pinocchio::error::ProgramError;
 
 use crate::traits::InstructionData;
 
-pub struct OptOutData;
+pub struct ContinuousOptOutData;
 
-impl<'a> TryFrom<&'a [u8]> for OptOutData {
+impl<'a> TryFrom<&'a [u8]> for ContinuousOptOutData {
     type Error = ProgramError;
 
     #[inline(always)]
@@ -13,6 +13,6 @@ impl<'a> TryFrom<&'a [u8]> for OptOutData {
     }
 }
 
-impl<'a> InstructionData<'a> for OptOutData {
+impl<'a> InstructionData<'a> for ContinuousOptOutData {
     const LEN: usize = 0;
 }

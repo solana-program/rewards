@@ -13,10 +13,14 @@ use crate::{
     ID,
 };
 
-use super::RevokeUser;
+use super::RevokeContinuousUser;
 
-pub fn process_revoke_user(_program_id: &Address, accounts: &[AccountView], instruction_data: &[u8]) -> ProgramResult {
-    let ix = RevokeUser::try_from((instruction_data, accounts))?;
+pub fn process_revoke_continuous_user(
+    _program_id: &Address,
+    accounts: &[AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let ix = RevokeContinuousUser::try_from((instruction_data, accounts))?;
 
     let pool_data = ix.accounts.reward_pool.try_borrow()?;
     let mut pool = RewardPool::from_account(&pool_data, ix.accounts.reward_pool, &ID)?;
@@ -42,9 +46,9 @@ pub fn process_revoke_user(_program_id: &Address, accounts: &[AccountView], inst
 
     let revocation_seeds =
         RevocationSeeds { parent: *ix.accounts.reward_pool.address(), user: *ix.accounts.user.address() };
-    let revocation_bump = revocation_seeds.validate_pda_address(ix.accounts.revocation_account, &ID)?;
+    let revocation_bump = revocation_seeds.validate_pda_address(ix.accounts.revocation_marker, &ID)?;
 
-    if !is_pda_uninitialized(ix.accounts.revocation_account) {
+    if !is_pda_uninitialized(ix.accounts.revocation_marker) {
         return Err(RewardsProgramError::UserAlreadyRevoked.into());
     }
 
@@ -116,7 +120,7 @@ pub fn process_revoke_user(_program_id: &Address, accounts: &[AccountView], inst
     pool.write_to_slice(&mut pool_data)?;
     drop(pool_data);
 
-    close_pda_account(ix.accounts.user_reward_account, ix.accounts.user)?;
+    close_pda_account(ix.accounts.user_reward_account, ix.accounts.rent_destination)?;
 
     let revocation_bump_seed = [revocation_bump];
     let revocation_pda_seeds = revocation_seeds.seeds_with_bump(&revocation_bump_seed);
@@ -127,12 +131,12 @@ pub fn process_revoke_user(_program_id: &Address, accounts: &[AccountView], inst
         ix.accounts.payer,
         Revocation::LEN,
         &ID,
-        ix.accounts.revocation_account,
+        ix.accounts.revocation_marker,
         revocation_pda_seeds_array,
     )?;
 
     let revocation = Revocation::new(revocation_bump);
-    let mut revocation_data = ix.accounts.revocation_account.try_borrow_mut()?;
+    let mut revocation_data = ix.accounts.revocation_marker.try_borrow_mut()?;
     revocation.write_to_slice(&mut revocation_data)?;
     drop(revocation_data);
 

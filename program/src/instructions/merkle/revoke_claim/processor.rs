@@ -47,9 +47,9 @@ pub fn process_revoke_merkle_claim(
     // Validate revocation PDA and derive bump on-chain
     let revocation_seeds =
         RevocationSeeds { parent: *ix.accounts.distribution.address(), user: *ix.accounts.claimant.address() };
-    let revocation_bump = revocation_seeds.validate_pda_address(ix.accounts.revocation_account, &ID)?;
+    let revocation_bump = revocation_seeds.validate_pda_address(ix.accounts.revocation_marker, &ID)?;
 
-    if !is_pda_uninitialized(ix.accounts.revocation_account) {
+    if !is_pda_uninitialized(ix.accounts.revocation_marker) {
         return Err(RewardsProgramError::ClaimantAlreadyRevoked.into());
     }
 
@@ -134,12 +134,12 @@ pub fn process_revoke_merkle_claim(
         ix.accounts.payer,
         Revocation::LEN,
         &ID,
-        ix.accounts.revocation_account,
+        ix.accounts.revocation_marker,
         revocation_pda_seeds_array,
     )?;
 
     let revocation = Revocation::new(revocation_bump);
-    let mut revocation_data = ix.accounts.revocation_account.try_borrow_mut()?;
+    let mut revocation_data = ix.accounts.revocation_marker.try_borrow_mut()?;
     revocation.write_to_slice(&mut revocation_data)?;
     drop(revocation_data);
 

@@ -23,7 +23,7 @@ use crate::{require_account_len, validate_discriminator};
 /// accumulator pattern for gas-efficient distribution.
 ///
 /// # PDA Seeds
-/// `[b"reward_pool", reward_mint.as_ref(), authority.as_ref(), seed.as_ref()]`
+/// `[b"reward_pool", reward_mint.as_ref(), tracked_mint.as_ref(), authority.as_ref(), seed.as_ref()]`
 #[derive(Clone, Debug, PartialEq, CodamaAccount)]
 pub struct RewardPool {
     pub bump: u8,
@@ -127,13 +127,20 @@ impl PdaSeeds for RewardPool {
     const PREFIX: &'static [u8] = b"reward_pool";
 
     fn seeds(&self) -> Vec<&[u8]> {
-        vec![Self::PREFIX, self.reward_mint.as_ref(), self.authority.as_ref(), self.seed.as_ref()]
+        vec![
+            Self::PREFIX,
+            self.reward_mint.as_ref(),
+            self.tracked_mint.as_ref(),
+            self.authority.as_ref(),
+            self.seed.as_ref(),
+        ]
     }
 
     fn seeds_with_bump<'a>(&'a self, bump: &'a [u8; 1]) -> Vec<Seed<'a>> {
         vec![
             Seed::from(Self::PREFIX),
             Seed::from(self.reward_mint.as_ref()),
+            Seed::from(self.tracked_mint.as_ref()),
             Seed::from(self.authority.as_ref()),
             Seed::from(self.seed.as_ref()),
             Seed::from(bump.as_slice()),
@@ -217,6 +224,7 @@ impl RewardPool {
         let pda_seeds = [
             Seed::from(Self::PREFIX),
             Seed::from(self.reward_mint.as_ref()),
+            Seed::from(self.tracked_mint.as_ref()),
             Seed::from(self.authority.as_ref()),
             Seed::from(self.seed.as_ref()),
             Seed::from(bump_seed.as_slice()),
@@ -319,11 +327,12 @@ mod tests {
     fn test_pda_seeds() {
         let pool = create_test_pool();
         let seeds = pool.seeds();
-        assert_eq!(seeds.len(), 4);
+        assert_eq!(seeds.len(), 5);
         assert_eq!(seeds[0], RewardPool::PREFIX);
         assert_eq!(seeds[1], pool.reward_mint.as_ref());
-        assert_eq!(seeds[2], pool.authority.as_ref());
-        assert_eq!(seeds[3], pool.seed.as_ref());
+        assert_eq!(seeds[2], pool.tracked_mint.as_ref());
+        assert_eq!(seeds[3], pool.authority.as_ref());
+        assert_eq!(seeds[4], pool.seed.as_ref());
     }
 
     #[test]

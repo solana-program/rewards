@@ -13,10 +13,14 @@ use crate::{
     ID,
 };
 
-use super::OptOut;
+use super::ContinuousOptOut;
 
-pub fn process_opt_out(_program_id: &Address, accounts: &[AccountView], instruction_data: &[u8]) -> ProgramResult {
-    let ix = OptOut::try_from((instruction_data, accounts))?;
+pub fn process_continuous_opt_out(
+    _program_id: &Address,
+    accounts: &[AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let ix = ContinuousOptOut::try_from((instruction_data, accounts))?;
 
     let pool_data = ix.accounts.reward_pool.try_borrow()?;
     let mut pool = RewardPool::from_account(&pool_data, ix.accounts.reward_pool, &ID)?;
@@ -37,6 +41,8 @@ pub fn process_opt_out(_program_id: &Address, accounts: &[AccountView], instruct
 
     update_user_rewards(&pool, &mut user)?;
 
+    // For AuthoritySet pools, the authority is responsible for calling set_balance
+    // before user opt-out to ensure accurate reward settlement.
     if pool.balance_source == BalanceSource::OnChain {
         let current_balance = get_token_account_balance(ix.accounts.user_tracked_token_account)?;
         sync_user_balance(&mut pool, &mut user, current_balance)?;

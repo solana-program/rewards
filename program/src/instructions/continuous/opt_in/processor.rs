@@ -3,16 +3,20 @@ use pinocchio::{account::AccountView, error::ProgramError, Address, ProgramResul
 use crate::{
     errors::RewardsProgramError,
     events::OptInEvent,
-    state::{RevocationSeeds, RewardPool, UserRewardAccount, UserRewardAccountSeeds},
+    state::{RewardPool, UserRewardAccount, UserRewardAccountSeeds},
     traits::{AccountSerialize, AccountSize, EventSerialize, PdaSeeds},
-    utils::{create_pda_account, emit_event, get_token_account_balance, is_pda_uninitialized, BalanceSource},
+    utils::{create_pda_account, emit_event, get_token_account_balance, verify_not_revoked, BalanceSource},
     ID,
 };
 
-use super::OptIn;
+use super::ContinuousOptIn;
 
-pub fn process_opt_in(_program_id: &Address, accounts: &[AccountView], instruction_data: &[u8]) -> ProgramResult {
-    let ix = OptIn::try_from((instruction_data, accounts))?;
+pub fn process_continuous_opt_in(
+    _program_id: &Address,
+    accounts: &[AccountView],
+    instruction_data: &[u8],
+) -> ProgramResult {
+    let ix = ContinuousOptIn::try_from((instruction_data, accounts))?;
 
     let pool_data = ix.accounts.reward_pool.try_borrow()?;
     let mut pool = RewardPool::from_account(&pool_data, ix.accounts.reward_pool, &ID)?;
@@ -20,13 +24,13 @@ pub fn process_opt_in(_program_id: &Address, accounts: &[AccountView], instructi
 
     pool.validate_tracked_mint(ix.accounts.tracked_mint.address())?;
 
-    let revocation_seeds =
-        RevocationSeeds { parent: *ix.accounts.reward_pool.address(), user: *ix.accounts.user.address() };
-    revocation_seeds.validate_pda_address(ix.accounts.revocation_account, &ID)?;
-
-    if !is_pda_uninitialized(ix.accounts.revocation_account) {
-        return Err(RewardsProgramError::UserRevoked.into());
-    }
+    verify_not_revoked(
+        ix.accounts.reward_pool.address(),
+        ix.accounts.user.address(),
+        ix.accounts.revocation_marker,
+        &ID,
+        RewardsProgramError::UserRevoked,
+    )?;
 
     let initial_balance = if pool.balance_source == BalanceSource::OnChain {
         get_token_account_balance(ix.accounts.user_tracked_token_account)?

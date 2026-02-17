@@ -663,6 +663,47 @@
       },
       {
         "kind": "definedTypeNode",
+        "name": "balanceSyncedEvent",
+        "type": {
+          "fields": [
+            {
+              "kind": "structFieldTypeNode",
+              "name": "rewardPool",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "user",
+              "type": {
+                "kind": "publicKeyTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "oldBalance",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            },
+            {
+              "kind": "structFieldTypeNode",
+              "name": "newBalance",
+              "type": {
+                "endian": "le",
+                "format": "u64",
+                "kind": "numberTypeNode"
+              }
+            }
+          ],
+          "kind": "structTypeNode"
+        }
+      },
+      {
+        "kind": "definedTypeNode",
         "name": "claimClosedEvent",
         "type": {
           "fields": [
@@ -1256,6 +1297,12 @@
         "kind": "errorNode",
         "message": "User has already been revoked from this reward pool",
         "name": "userAlreadyRevoked"
+      },
+      {
+        "code": 30,
+        "kind": "errorNode",
+        "message": "Invalid timestamp value",
+        "name": "invalidTimestamp"
       }
     ],
     "instructions": [
@@ -2123,7 +2170,7 @@
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
-            "name": "revocationAccount"
+            "name": "revocationMarker"
           },
           {
             "docs": [
@@ -2642,7 +2689,7 @@
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
-            "name": "revocationAccount"
+            "name": "revocationMarker"
           },
           {
             "docs": [
@@ -2831,11 +2878,11 @@
             "isSigner": true,
             "isWritable": false,
             "kind": "instructionAccountNode",
-            "name": "seeds"
+            "name": "seed"
           },
           {
             "docs": [
-              "PDA: [b\"reward_pool\", reward_mint, authority, seeds] (created)"
+              "PDA: [b\"reward_pool\", reward_mint, tracked_mint, authority, seed] (created)"
             ],
             "isSigner": false,
             "isWritable": true,
@@ -2943,9 +2990,8 @@
             "kind": "instructionArgumentNode",
             "name": "balanceSource",
             "type": {
-              "endian": "le",
-              "format": "u8",
-              "kind": "numberTypeNode"
+              "kind": "definedTypeLinkNode",
+              "name": "balanceSource"
             }
           },
           {
@@ -2975,7 +3021,7 @@
           }
         ],
         "kind": "instructionNode",
-        "name": "createRewardPool"
+        "name": "createContinuousPool"
       },
       {
         "accounts": [
@@ -3022,7 +3068,7 @@
             "isSigner": false,
             "isWritable": false,
             "kind": "instructionAccountNode",
-            "name": "revocationAccount"
+            "name": "revocationMarker"
           },
           {
             "docs": [
@@ -3112,7 +3158,7 @@
           }
         ],
         "kind": "instructionNode",
-        "name": "optIn"
+        "name": "continuousOptIn"
       },
       {
         "accounts": [
@@ -3249,7 +3295,7 @@
           }
         ],
         "kind": "instructionNode",
-        "name": "optOut"
+        "name": "continuousOptOut"
       },
       {
         "accounts": [
@@ -3359,7 +3405,7 @@
           }
         ],
         "kind": "instructionNode",
-        "name": "distributeReward"
+        "name": "distributeContinuousReward"
       },
       {
         "accounts": [
@@ -3562,6 +3608,24 @@
             "isWritable": false,
             "kind": "instructionAccountNode",
             "name": "trackedTokenProgram"
+          },
+          {
+            "docs": [
+              "PDA: [b\"__event_authority\"] for event CPI"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "eventAuthority"
+          },
+          {
+            "docs": [
+              "This program's ID"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "rewardsProgram"
           }
         ],
         "arguments": [
@@ -3588,7 +3652,7 @@
           }
         ],
         "kind": "instructionNode",
-        "name": "syncBalance"
+        "name": "syncContinuousBalance"
       },
       {
         "accounts": [
@@ -3662,7 +3726,7 @@
           }
         ],
         "kind": "instructionNode",
-        "name": "setBalance"
+        "name": "setContinuousBalance"
       },
       {
         "accounts": [
@@ -3763,7 +3827,7 @@
           }
         ],
         "kind": "instructionNode",
-        "name": "closeRewardPool"
+        "name": "closeContinuousPool"
       },
       {
         "accounts": [
@@ -3810,16 +3874,25 @@
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
-            "name": "revocationAccount"
+            "name": "revocationMarker"
           },
           {
             "docs": [
-              "User being revoked; receives rent refund from closed URA"
+              "User being revoked"
+            ],
+            "isSigner": false,
+            "isWritable": false,
+            "kind": "instructionAccountNode",
+            "name": "user"
+          },
+          {
+            "docs": [
+              "Receives rent refund from closed UserRewardAccount; authority decides destination"
             ],
             "isSigner": false,
             "isWritable": true,
             "kind": "instructionAccountNode",
-            "name": "user"
+            "name": "rentDestination"
           },
           {
             "docs": [
@@ -3953,7 +4026,7 @@
           }
         ],
         "kind": "instructionNode",
-        "name": "revokeUser"
+        "name": "revokeContinuousUser"
       },
       {
         "accounts": [

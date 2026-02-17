@@ -10,14 +10,14 @@ use crate::{
     ID,
 };
 
-use super::CloseRewardPool;
+use super::CloseContinuousPool;
 
-pub fn process_close_reward_pool(
+pub fn process_close_continuous_pool(
     _program_id: &Address,
     accounts: &[AccountView],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    let ix = CloseRewardPool::try_from((instruction_data, accounts))?;
+    let ix = CloseContinuousPool::try_from((instruction_data, accounts))?;
 
     let pool_data = ix.accounts.reward_pool.try_borrow()?;
     let pool = RewardPool::from_account(&pool_data, ix.accounts.reward_pool, &ID)?;
@@ -33,6 +33,8 @@ pub fn process_close_reward_pool(
         }
     }
 
+    // Intentionally does not check unclaimed == 0. Authority can sweep remaining vault
+    // funds after clawback_ts.
     let remaining_amount = get_token_account_balance(ix.accounts.reward_vault)?;
     let decimals = get_mint_decimals(ix.accounts.reward_mint)?;
 

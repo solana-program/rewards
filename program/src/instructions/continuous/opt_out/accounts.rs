@@ -8,7 +8,7 @@ use crate::{
     },
 };
 
-pub struct OptOutAccounts<'a> {
+pub struct ContinuousOptOutAccounts<'a> {
     pub user: &'a AccountView,
     pub reward_pool: &'a AccountView,
     pub user_reward_account: &'a AccountView,
@@ -23,7 +23,7 @@ pub struct OptOutAccounts<'a> {
     pub program: &'a AccountView,
 }
 
-impl<'a> TryFrom<&'a [AccountView]> for OptOutAccounts<'a> {
+impl<'a> TryFrom<&'a [AccountView]> for ContinuousOptOutAccounts<'a> {
     type Error = ProgramError;
 
     #[inline(always)]
@@ -82,4 +82,4 @@ impl<'a> TryFrom<&'a [AccountView]> for OptOutAccounts<'a> {
     }
 }
 
-impl<'a> InstructionAccounts<'a> for OptOutAccounts<'a> {}
+impl<'a> InstructionAccounts<'a> for ContinuousOptOutAccounts<'a> {}

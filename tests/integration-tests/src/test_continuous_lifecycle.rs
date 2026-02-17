@@ -3,8 +3,9 @@ use solana_sdk::signer::Signer;
 
 use crate::fixtures::{
     build_claim_continuous_instruction, build_close_reward_pool_instruction, build_opt_out_instruction,
-    build_set_balance_instruction, build_sync_balance_instruction, CreateRewardPoolFixture, CreateRewardPoolSetup,
-    DistributeRewardSetup, OptInFixture, OptInSetup, DEFAULT_REWARD_AMOUNT, DEFAULT_TRACKED_BALANCE,
+    build_set_balance_instruction, build_sync_balance_instruction, ContinuousOptInFixture, ContinuousOptInSetup,
+    CreateContinuousPoolFixture, CreateContinuousPoolSetup, DistributeContinuousRewardSetup, DEFAULT_REWARD_AMOUNT,
+    DEFAULT_TRACKED_BALANCE,
 };
 use crate::utils::{
     assert_account_closed, assert_reward_pool, find_revocation_pda, find_user_reward_account_pda, get_reward_pool,
@@ -12,54 +13,54 @@ use crate::utils::{
     test_wrong_current_program, test_wrong_system_program, TestContext,
 };
 
-// ─── CreateRewardPool generic tests ───
+// ─── CreateContinuousPool generic tests ───
 
 #[test]
 fn test_create_reward_pool_missing_authority_signer() {
     let mut ctx = TestContext::new();
-    test_missing_signer::<CreateRewardPoolFixture>(&mut ctx, 1, 0);
+    test_missing_signer::<CreateContinuousPoolFixture>(&mut ctx, 1, 0);
 }
 
 #[test]
 fn test_create_reward_pool_missing_seeds_signer() {
     let mut ctx = TestContext::new();
-    test_missing_signer::<CreateRewardPoolFixture>(&mut ctx, 2, 1);
+    test_missing_signer::<CreateContinuousPoolFixture>(&mut ctx, 2, 1);
 }
 
 #[test]
 fn test_create_reward_pool_pool_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<CreateRewardPoolFixture>(&mut ctx, 3);
+    test_not_writable::<CreateContinuousPoolFixture>(&mut ctx, 3);
 }
 
 #[test]
 fn test_create_reward_pool_wrong_system_program() {
     let mut ctx = TestContext::new();
-    test_wrong_system_program::<CreateRewardPoolFixture>(&mut ctx);
+    test_wrong_system_program::<CreateContinuousPoolFixture>(&mut ctx);
 }
 
 #[test]
 fn test_create_reward_pool_wrong_current_program() {
     let mut ctx = TestContext::new();
-    test_wrong_current_program::<CreateRewardPoolFixture>(&mut ctx);
+    test_wrong_current_program::<CreateContinuousPoolFixture>(&mut ctx);
 }
 
 #[test]
 fn test_create_reward_pool_empty_data() {
     let mut ctx = TestContext::new();
-    test_empty_data::<CreateRewardPoolFixture>(&mut ctx);
+    test_empty_data::<CreateContinuousPoolFixture>(&mut ctx);
 }
 
 #[test]
 fn test_create_reward_pool_truncated_data() {
     let mut ctx = TestContext::new();
-    test_truncated_data::<CreateRewardPoolFixture>(&mut ctx);
+    test_truncated_data::<CreateContinuousPoolFixture>(&mut ctx);
 }
 
 #[test]
 fn test_create_reward_pool_success() {
     let mut ctx = TestContext::new();
-    let setup = CreateRewardPoolSetup::new(&mut ctx);
+    let setup = CreateContinuousPoolSetup::new(&mut ctx);
     let instruction = setup.build_instruction(&ctx);
 
     instruction.send_expect_success(&mut ctx);
@@ -84,7 +85,7 @@ fn test_create_reward_pool_success() {
 #[test]
 fn test_create_reward_pool_authority_set_mode() {
     let mut ctx = TestContext::new();
-    let setup = CreateRewardPoolSetup::new_authority_set(&mut ctx);
+    let setup = CreateContinuousPoolSetup::new_authority_set(&mut ctx);
     let instruction = setup.build_instruction(&ctx);
 
     instruction.send_expect_success(&mut ctx);
@@ -93,48 +94,48 @@ fn test_create_reward_pool_authority_set_mode() {
     assert_eq!(pool.balance_source, BalanceSource::AuthoritySet);
 }
 
-// ─── OptIn generic tests ───
+// ─── ContinuousOptIn generic tests ───
 
 #[test]
 fn test_opt_in_missing_user_signer() {
     let mut ctx = TestContext::new();
-    test_missing_signer::<OptInFixture>(&mut ctx, 1, 0);
+    test_missing_signer::<ContinuousOptInFixture>(&mut ctx, 1, 0);
 }
 
 #[test]
 fn test_opt_in_pool_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<OptInFixture>(&mut ctx, 2);
+    test_not_writable::<ContinuousOptInFixture>(&mut ctx, 2);
 }
 
 #[test]
 fn test_opt_in_user_reward_not_writable() {
     let mut ctx = TestContext::new();
-    test_not_writable::<OptInFixture>(&mut ctx, 3);
+    test_not_writable::<ContinuousOptInFixture>(&mut ctx, 3);
 }
 
 #[test]
 fn test_opt_in_wrong_system_program() {
     let mut ctx = TestContext::new();
-    test_wrong_system_program::<OptInFixture>(&mut ctx);
+    test_wrong_system_program::<ContinuousOptInFixture>(&mut ctx);
 }
 
 #[test]
 fn test_opt_in_wrong_current_program() {
     let mut ctx = TestContext::new();
-    test_wrong_current_program::<OptInFixture>(&mut ctx);
+    test_wrong_current_program::<ContinuousOptInFixture>(&mut ctx);
 }
 
 #[test]
 fn test_opt_in_empty_data() {
     let mut ctx = TestContext::new();
-    test_empty_data::<OptInFixture>(&mut ctx);
+    test_empty_data::<ContinuousOptInFixture>(&mut ctx);
 }
 
 #[test]
 fn test_opt_in_success() {
     let mut ctx = TestContext::new();
-    let setup = OptInSetup::new(&mut ctx);
+    let setup = ContinuousOptInSetup::new(&mut ctx);
     let instruction = setup.build_instruction(&ctx);
 
     instruction.send_expect_success(&mut ctx);
@@ -152,7 +153,7 @@ fn test_opt_in_success() {
 #[test]
 fn test_opt_in_authority_set_mode_zero_balance() {
     let mut ctx = TestContext::new();
-    let setup = OptInSetup::new_authority_set(&mut ctx);
+    let setup = ContinuousOptInSetup::new_authority_set(&mut ctx);
     let instruction = setup.build_instruction(&ctx);
 
     instruction.send_expect_success(&mut ctx);
@@ -164,12 +165,12 @@ fn test_opt_in_authority_set_mode_zero_balance() {
     assert_eq!(pool.opted_in_supply, 0);
 }
 
-// ─── DistributeReward tests ───
+// ─── DistributeContinuousReward tests ───
 
 #[test]
 fn test_distribute_reward_success() {
     let mut ctx = TestContext::new();
-    let setup = DistributeRewardSetup::new(&mut ctx);
+    let setup = DistributeContinuousRewardSetup::new(&mut ctx);
     let instruction = setup.build_instruction(&ctx);
 
     instruction.send_expect_success(&mut ctx);
@@ -184,7 +185,7 @@ fn test_distribute_reward_success() {
 #[test]
 fn test_distribute_reward_updates_vault_balance() {
     let mut ctx = TestContext::new();
-    let setup = DistributeRewardSetup::new(&mut ctx);
+    let setup = DistributeContinuousRewardSetup::new(&mut ctx);
     let vault = setup.opt_in_setup.pool_setup.reward_vault;
 
     let before = ctx.get_token_balance(&vault);
@@ -199,7 +200,7 @@ fn test_distribute_reward_updates_vault_balance() {
 #[test]
 fn test_claim_continuous_full() {
     let mut ctx = TestContext::new();
-    let setup = DistributeRewardSetup::new(&mut ctx);
+    let setup = DistributeContinuousRewardSetup::new(&mut ctx);
     setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     let pool_setup = &setup.opt_in_setup.pool_setup;
@@ -233,7 +234,7 @@ fn test_claim_continuous_full() {
 #[test]
 fn test_claim_continuous_partial() {
     let mut ctx = TestContext::new();
-    let setup = DistributeRewardSetup::new(&mut ctx);
+    let setup = DistributeContinuousRewardSetup::new(&mut ctx);
     setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     let pool_setup = &setup.opt_in_setup.pool_setup;
@@ -262,12 +263,12 @@ fn test_claim_continuous_partial() {
     assert_eq!(user_account.accrued_rewards, DEFAULT_REWARD_AMOUNT - partial_amount);
 }
 
-// ─── SyncBalance tests ───
+// ─── SyncContinuousBalance tests ───
 
 #[test]
 fn test_sync_balance_increases_supply() {
     let mut ctx = TestContext::new();
-    let setup = OptInSetup::new(&mut ctx);
+    let setup = ContinuousOptInSetup::new(&mut ctx);
     setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     let new_balance = DEFAULT_TRACKED_BALANCE * 2;
@@ -291,7 +292,7 @@ fn test_sync_balance_increases_supply() {
 #[test]
 fn test_sync_balance_decreases_supply() {
     let mut ctx = TestContext::new();
-    let setup = OptInSetup::new(&mut ctx);
+    let setup = ContinuousOptInSetup::new(&mut ctx);
     setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     let new_balance = DEFAULT_TRACKED_BALANCE / 2;
@@ -312,12 +313,12 @@ fn test_sync_balance_decreases_supply() {
     assert_eq!(pool.opted_in_supply, new_balance);
 }
 
-// ─── SetBalance tests ───
+// ─── SetContinuousBalance tests ───
 
 #[test]
 fn test_set_balance_success() {
     let mut ctx = TestContext::new();
-    let setup = OptInSetup::new_authority_set(&mut ctx);
+    let setup = ContinuousOptInSetup::new_authority_set(&mut ctx);
     setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     let new_balance = 500_000;
@@ -332,12 +333,12 @@ fn test_set_balance_success() {
     assert_eq!(pool.opted_in_supply, new_balance);
 }
 
-// ─── OptOut tests ───
+// ─── ContinuousOptOut tests ───
 
 #[test]
 fn test_opt_out_with_rewards() {
     let mut ctx = TestContext::new();
-    let setup = DistributeRewardSetup::new(&mut ctx);
+    let setup = DistributeContinuousRewardSetup::new(&mut ctx);
     setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     let pool_setup = &setup.opt_in_setup.pool_setup;
@@ -364,7 +365,7 @@ fn test_opt_out_with_rewards() {
 #[test]
 fn test_opt_out_no_rewards() {
     let mut ctx = TestContext::new();
-    let setup = OptInSetup::new(&mut ctx);
+    let setup = ContinuousOptInSetup::new(&mut ctx);
     setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     let pool_setup = &setup.pool_setup;
@@ -386,12 +387,12 @@ fn test_opt_out_no_rewards() {
     assert_eq!(pool.opted_in_supply, 0);
 }
 
-// ─── CloseRewardPool tests ───
+// ─── CloseContinuousPool tests ───
 
 #[test]
 fn test_close_reward_pool_success() {
     let mut ctx = TestContext::new();
-    let setup = CreateRewardPoolSetup::new(&mut ctx);
+    let setup = CreateContinuousPoolSetup::new(&mut ctx);
     setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     let authority_ta = ctx.create_token_account(&setup.authority.pubkey(), &setup.reward_mint.pubkey());
@@ -405,7 +406,7 @@ fn test_close_reward_pool_success() {
 #[test]
 fn test_close_reward_pool_with_remaining_tokens() {
     let mut ctx = TestContext::new();
-    let setup = DistributeRewardSetup::new(&mut ctx);
+    let setup = DistributeContinuousRewardSetup::new(&mut ctx);
     setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     let pool_setup = &setup.opt_in_setup.pool_setup;
@@ -427,7 +428,7 @@ fn test_full_lifecycle_on_chain_balance() {
     let mut ctx = TestContext::new();
 
     // 1. Create pool
-    let pool_setup = CreateRewardPoolSetup::new(&mut ctx);
+    let pool_setup = CreateContinuousPoolSetup::new(&mut ctx);
     pool_setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     // 2. User A opts in with 1_000_000
@@ -438,13 +439,13 @@ fn test_full_lifecycle_on_chain_balance() {
 
     let (event_authority, _) = crate::utils::find_event_authority_pda();
     let (user_a_revocation_pda, _) = find_revocation_pda(&pool_setup.reward_pool_pda, &user_a.pubkey());
-    let mut opt_in_builder = rewards_program_client::instructions::OptInBuilder::new();
+    let mut opt_in_builder = rewards_program_client::instructions::ContinuousOptInBuilder::new();
     opt_in_builder
         .payer(ctx.payer.pubkey())
         .user(user_a.pubkey())
         .reward_pool(pool_setup.reward_pool_pda)
         .user_reward_account(user_a_reward_pda)
-        .revocation_account(user_a_revocation_pda)
+        .revocation_marker(user_a_revocation_pda)
         .user_tracked_token_account(user_a_tracked_ta)
         .tracked_mint(pool_setup.tracked_mint.pubkey())
         .tracked_token_program(spl_token_interface::ID)
@@ -453,7 +454,7 @@ fn test_full_lifecycle_on_chain_balance() {
     let opt_in_ix = crate::utils::TestInstruction {
         instruction: opt_in_builder.instruction(),
         signers: vec![user_a.insecure_clone()],
-        name: "OptIn",
+        name: "ContinuousOptIn",
     };
     opt_in_ix.send_expect_success(&mut ctx);
 
@@ -464,13 +465,13 @@ fn test_full_lifecycle_on_chain_balance() {
     let (user_b_reward_pda, user_b_bump) = find_user_reward_account_pda(&pool_setup.reward_pool_pda, &user_b.pubkey());
 
     let (user_b_revocation_pda, _) = find_revocation_pda(&pool_setup.reward_pool_pda, &user_b.pubkey());
-    let mut opt_in_builder_b = rewards_program_client::instructions::OptInBuilder::new();
+    let mut opt_in_builder_b = rewards_program_client::instructions::ContinuousOptInBuilder::new();
     opt_in_builder_b
         .payer(ctx.payer.pubkey())
         .user(user_b.pubkey())
         .reward_pool(pool_setup.reward_pool_pda)
         .user_reward_account(user_b_reward_pda)
-        .revocation_account(user_b_revocation_pda)
+        .revocation_marker(user_b_revocation_pda)
         .user_tracked_token_account(user_b_tracked_ta)
         .tracked_mint(pool_setup.tracked_mint.pubkey())
         .tracked_token_program(spl_token_interface::ID)
@@ -479,7 +480,7 @@ fn test_full_lifecycle_on_chain_balance() {
     let opt_in_ix_b = crate::utils::TestInstruction {
         instruction: opt_in_builder_b.instruction(),
         signers: vec![user_b.insecure_clone()],
-        name: "OptIn",
+        name: "ContinuousOptIn",
     };
     opt_in_ix_b.send_expect_success(&mut ctx);
 
@@ -493,7 +494,7 @@ fn test_full_lifecycle_on_chain_balance() {
         1_000_000,
     );
 
-    let mut dist_builder = rewards_program_client::instructions::DistributeRewardBuilder::new();
+    let mut dist_builder = rewards_program_client::instructions::DistributeContinuousRewardBuilder::new();
     dist_builder
         .authority(pool_setup.authority.pubkey())
         .reward_pool(pool_setup.reward_pool_pda)
@@ -506,7 +507,7 @@ fn test_full_lifecycle_on_chain_balance() {
     let dist_ix = crate::utils::TestInstruction {
         instruction: dist_builder.instruction(),
         signers: vec![pool_setup.authority.insecure_clone()],
-        name: "DistributeReward",
+        name: "DistributeContinuousReward",
     };
     dist_ix.send_expect_success(&mut ctx);
 
@@ -582,7 +583,7 @@ fn test_lifecycle_authority_set_balance() {
     let mut ctx = TestContext::new();
 
     // 1. Create pool in authority-set mode
-    let pool_setup = CreateRewardPoolSetup::new_authority_set(&mut ctx);
+    let pool_setup = CreateContinuousPoolSetup::new_authority_set(&mut ctx);
     pool_setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     // 2. User opts in (initial balance = 0 in authority-set mode)
@@ -592,13 +593,13 @@ fn test_lifecycle_authority_set_balance() {
 
     let (event_authority, _) = crate::utils::find_event_authority_pda();
     let (user_revocation_pda, _) = find_revocation_pda(&pool_setup.reward_pool_pda, &user.pubkey());
-    let mut opt_in_builder = rewards_program_client::instructions::OptInBuilder::new();
+    let mut opt_in_builder = rewards_program_client::instructions::ContinuousOptInBuilder::new();
     opt_in_builder
         .payer(ctx.payer.pubkey())
         .user(user.pubkey())
         .reward_pool(pool_setup.reward_pool_pda)
         .user_reward_account(user_reward_pda)
-        .revocation_account(user_revocation_pda)
+        .revocation_marker(user_revocation_pda)
         .user_tracked_token_account(user_tracked_ta)
         .tracked_mint(pool_setup.tracked_mint.pubkey())
         .tracked_token_program(spl_token_interface::ID)
@@ -607,7 +608,7 @@ fn test_lifecycle_authority_set_balance() {
     let opt_in_ix = crate::utils::TestInstruction {
         instruction: opt_in_builder.instruction(),
         signers: vec![user.insecure_clone()],
-        name: "OptIn",
+        name: "ContinuousOptIn",
     };
     opt_in_ix.send_expect_success(&mut ctx);
 
@@ -631,7 +632,7 @@ fn test_lifecycle_authority_set_balance() {
         1_000_000,
     );
 
-    let mut dist_builder = rewards_program_client::instructions::DistributeRewardBuilder::new();
+    let mut dist_builder = rewards_program_client::instructions::DistributeContinuousRewardBuilder::new();
     dist_builder
         .authority(pool_setup.authority.pubkey())
         .reward_pool(pool_setup.reward_pool_pda)
@@ -644,7 +645,7 @@ fn test_lifecycle_authority_set_balance() {
     let dist_ix = crate::utils::TestInstruction {
         instruction: dist_builder.instruction(),
         signers: vec![pool_setup.authority.insecure_clone()],
-        name: "DistributeReward",
+        name: "DistributeContinuousReward",
     };
     dist_ix.send_expect_success(&mut ctx);
 
@@ -669,7 +670,7 @@ fn test_lifecycle_authority_set_balance() {
 #[test]
 fn test_sync_balance_after_distribution() {
     let mut ctx = TestContext::new();
-    let setup = DistributeRewardSetup::new(&mut ctx);
+    let setup = DistributeContinuousRewardSetup::new(&mut ctx);
     setup.build_instruction(&ctx).send_expect_success(&mut ctx);
 
     // User sells half their tokens
